@@ -1,19 +1,9 @@
-# SiteReel Studio
+# ChurchReel Studio
 
-Automated Website-to-Screen-Video Studio that extracts metadata and high-DPI visuals from any URL and renders 60fps showcase videos with:
+Catholic & Parish Website-to-Screen-Video Studio that loads any website URL, smoothly scrolls through the page (automatically or manually with your mouse wheel), and exports to **MP4** and **Animated GIF**.
 
-1. **Smooth Automatic Scrolling** — Spring/cubic-eased top-to-bottom showcase scrolling
-2. **Device Frames & Styled Backdrops** — macOS Dark, macOS Light, iPhone 16 Pro, and Minimal Glass frames over animated mesh wallpapers
-3. **Simulated Cursor, Clicks & Camera Zoom** — Automatic hotspot detection with pointer glides, click ripples, and Screen Studio-style camera zoom-in
-4. **Social Media Aspect Ratios & 60fps Export** — Switch between `16:9` (YouTube/X), `9:16` (TikTok/Reels), and `1:1` (Feed) and export directly to `.webm` video
-
-## Quick Start
-
-### Option 1: Full Server Mode (with Live Headless Chrome Capture)
-```bash
-node server.js
-```
-Open `http://localhost:3456` in your browser.
-
-### Option 2: Standalone Browser Mode
-Open `public/index.html` directly in Chrome or Safari.
+## Features
+1. **Light Alabaster & Vatican Gold Interface** — Warm, bright studio theme with Catholic-inspired backdrop presets (*Vatican Gold & Ivory*, *Cathedral Alabaster*, *Marian Sky Blue*, *Gaudete Rose*, *Ordinary Time Meadow*).
+2. **Real Webpage Loading & Interactive Scrolling** — Paste any URL (e.g., `vaticannews.va`, `usccb.org`, `wikipedia.org`) and click **Load & Scroll Page**. Scroll manually with your mouse wheel/trackpad or let **Smooth Auto-Scrolling** glide top-to-bottom.
+3. **Simulated Cursor, Clicks & Camera Zoom** — Automatic hotspot focus with pointer glides, click ripples, and Screen Studio-style camera zoom-in.
+4. **Native MP4 & Animated GIF Export** — Export in `16:9`, `9:16` (Reels/Shorts), or `1:1` directly to `.mp4` or `.gif`.

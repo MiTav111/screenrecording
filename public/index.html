@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>SiteReel Studio — Turn Any Website Link Into a Cinematic Screen Video</title>
+  <title>ChurchReel Studio — Catholic Website & Parish Screen Video Creator</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
@@ -11,45 +11,51 @@
     <!-- Top Bar -->
     <header class="topbar">
       <div class="brand">
-        <div class="brand-logo">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4">
-            <rect x="2" y="3" width="20" height="14" rx="2.5"></rect>
-            <path d="M8 21h8"></path>
-            <path d="M12 17v4"></path>
-            <polygon points="10 8 15 10.5 10 13 10 8" fill="currentColor"></polygon>
+        <div class="brand-logo" title="ChurchReel Studio">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+            <path d="M12 2v6M9 5h6" stroke-linecap="round"/>
+            <path d="M5 10l7-4 7 4v10a1 1 0 01-1 1H6a1 1 0 01-1-1V10z"/>
+            <path d="M10 21v-5a2 2 0 014 0v5"/>
           </svg>
         </div>
         <div>
-          <span class="brand-title">SiteReel Studio</span>
-          <span class="brand-badge">PRO ENGINE</span>
+          <span class="brand-title">ChurchReel Studio</span>
+          <span class="brand-badge">CATHOLIC MEDIA ENGINE</span>
         </div>
       </div>
 
       <!-- URL Input Bar -->
       <form id="extractForm" class="url-bar">
         <div class="url-input-wrap">
-          <span class="url-icon">🔗</span>
+          <span class="url-icon">⛪</span>
           <input
             type="text"
             id="urlInput"
-            placeholder="Paste any website link (e.g. stripe.com, apple.com, or 'demo')"
-            value="pulseflow.app"
+            placeholder="Enter any website URL to load & scroll (e.g. vaticannews.va, ewtn.com, wikipedia.org)"
+            value="https://www.vaticannews.va/en.html"
             autocomplete="off"
           />
           <div class="quick-presets">
-            <button type="button" class="preset-chip" data-url="pulseflow.app">Demo Social App</button>
-            <button type="button" class="preset-chip" data-url="https://example.com">Example.com</button>
+            <button type="button" class="preset-chip" data-url="https://www.vaticannews.va/en.html">Vatican News</button>
+            <button type="button" class="preset-chip" data-url="https://www.usccb.org">USCCB</button>
+            <button type="button" class="preset-chip" data-url="https://en.wikipedia.org/wiki/Catholic_Church">Catholic Wiki</button>
+            <button type="button" class="preset-chip" data-url="demo">Parish Demo</button>
           </div>
         </div>
         <button type="submit" id="extractBtn" class="btn-extract">
-          <span class="btn-extract-text">Extract & Animate</span>
+          <span class="btn-extract-text">Load & Scroll Page</span>
         </button>
       </form>
 
+      <!-- Export Actions: MP4 and GIF -->
       <div class="topbar-actions">
-        <button id="exportVideoBtn" class="btn-export">
+        <button id="exportMp4Btn" class="btn-export btn-mp4">
           <span class="rec-dot"></span>
-          <span id="exportBtnLabel">Export Video (.webm)</span>
+          <span id="exportMp4Label">Export MP4</span>
+        </button>
+        <button id="exportGifBtn" class="btn-export btn-gif">
+          <span>🎞️</span>
+          <span id="exportGifLabel">Export GIF</span>
         </button>
       </div>
     </header>
@@ -61,34 +67,34 @@
         <!-- Extracted Site Info Card -->
         <div class="control-group extracted-card" id="siteMetaCard">
           <div class="group-header">
-            <span class="group-title">EXTRACTED LINK DATA</span>
+            <span class="group-title">LOADED WEBPAGE</span>
             <span class="status-pill" id="extractStatus">Ready</span>
           </div>
-          <div class="meta-title" id="metaTitle">PulseFlow — Next-Gen Creator Social Platform</div>
-          <div class="meta-url" id="metaUrl">pulseflow.app</div>
-          <div class="meta-desc" id="metaDesc">Share interactive stories, live drops, and visual reels with zero friction.</div>
+          <div class="meta-title" id="metaTitle">Vatican News — Official Catholic Portal</div>
+          <div class="meta-url" id="metaUrl">vaticannews.va</div>
+          <div class="meta-desc" id="metaDesc">Scroll manually on the canvas with your mouse wheel or let Auto-Scroll glide top-to-bottom.</div>
         </div>
 
-        <!-- 1. Aspect Ratio (Social Media Presets) -->
+        <!-- 1. Social Aspect Ratio -->
         <div class="control-group">
           <div class="group-header">
-            <span class="group-title">4. SOCIAL ASPECT RATIO</span>
+            <span class="group-title">1. SOCIAL ASPECT RATIO</span>
           </div>
           <div class="segmented-grid cols-3" id="aspectGroup">
             <button type="button" class="seg-btn active" data-aspect="16:9">
               <span class="ratio-icon ratio-16-9"></span>
               <span>16:9</span>
-              <small>YouTube / X</small>
+              <small>YouTube / Web</small>
             </button>
             <button type="button" class="seg-btn" data-aspect="9:16">
               <span class="ratio-icon ratio-9-16"></span>
               <span>9:16</span>
-              <small>TikTok / Reels</small>
+              <small>Reels / Shorts</small>
             </button>
             <button type="button" class="seg-btn" data-aspect="1:1">
               <span class="ratio-icon ratio-1-1"></span>
               <span>1:1</span>
-              <small>Feed / Post</small>
+              <small>Parish Feed</small>
             </button>
           </div>
         </div>
@@ -99,20 +105,20 @@
             <span class="group-title">2. DEVICE FRAME & BACKDROP</span>
           </div>
           <div class="segmented-grid cols-2" id="frameGroup">
-            <button type="button" class="seg-btn active" data-frame="macos-dark">macOS Dark</button>
-            <button type="button" class="seg-btn" data-frame="macos-light">macOS Light</button>
+            <button type="button" class="seg-btn active" data-frame="macos-light">macOS Light</button>
+            <button type="button" class="seg-btn" data-frame="macos-dark">macOS Dark</button>
             <button type="button" class="seg-btn" data-frame="iphone">iPhone 16 Pro</button>
             <button type="button" class="seg-btn" data-frame="glass">Minimal Glass</button>
           </div>
 
-          <div class="sub-label">Wallpaper Gradient</div>
+          <div class="sub-label">Backdrop Theme</div>
           <div class="swatch-row" id="bgSwatches">
-            <button type="button" class="swatch active" data-bg="aurora" style="background: linear-gradient(135deg, #4f46e5, #9333ea, #ec4899);" title="Aurora"></button>
-            <button type="button" class="swatch" data-bg="sunset" style="background: linear-gradient(135deg, #f97316, #ef4444, #8b5cf6);" title="Sunset Glow"></button>
-            <button type="button" class="swatch" data-bg="cyber" style="background: linear-gradient(135deg, #06b6d4, #3b82f6, #1e1b4b);" title="Cyber Ocean"></button>
-            <button type="button" class="swatch" data-bg="emerald" style="background: linear-gradient(135deg, #10b981, #059669, #0f172a);" title="Emerald"></button>
-            <button type="button" class="swatch" data-bg="noir" style="background: linear-gradient(135deg, #1e293b, #0f172a, #020617);" title="Studio Noir"></button>
-            <button type="button" class="swatch" data-bg="cotton" style="background: linear-gradient(135deg, #f472b6, #a78bfa, #38bdf8);" title="Cotton Candy"></button>
+            <button type="button" class="swatch active" data-bg="vatican" style="background: linear-gradient(135deg, #fef3c7, #f59e0b, #fffbeb);" title="Vatican Gold & Ivory"></button>
+            <button type="button" class="swatch" data-bg="alabaster" style="background: linear-gradient(135deg, #f8fafc, #e2e8f0, #cbd5e1);" title="Cathedral Alabaster"></button>
+            <button type="button" class="swatch" data-bg="marian" style="background: linear-gradient(135deg, #dbeafe, #60a5fa, #1d4ed8);" title="Marian Sky Blue"></button>
+            <button type="button" class="swatch" data-bg="rose" style="background: linear-gradient(135deg, #fce7f3, #f472b6, #9333ea);" title="Gaudete Rose"></button>
+            <button type="button" class="swatch" data-bg="olive" style="background: linear-gradient(135deg, #dcfce7, #34d399, #065f46);" title="Ordinary Time Meadow"></button>
+            <button type="button" class="swatch" data-bg="aurora" style="background: linear-gradient(135deg, #4f46e5, #9333ea, #ec4899);" title="Royal Purple"></button>
           </div>
 
           <div class="slider-row">
@@ -125,23 +131,23 @@
 
           <div class="slider-row">
             <div class="slider-label">
-              <span>Window Shadow & 3D Tilt</span>
-              <span id="tiltVal">Dynamic</span>
+              <span>Manual Scroll Position</span>
+              <span id="manualScrollVal">0%</span>
             </div>
-            <input type="range" id="tiltSlider" min="0" max="100" value="65" />
+            <input type="range" id="manualScrollSlider" min="0" max="100" value="0" />
           </div>
         </div>
 
         <!-- 3. Smooth Scroll & Simulated Cursor / Zoom Choreography -->
         <div class="control-group">
           <div class="group-header">
-            <span class="group-title">1 & 3. MOTION & CURSOR EFFECTS</span>
+            <span class="group-title">3. SCROLL, CURSOR & ZOOM EFFECTS</span>
           </div>
 
           <label class="toggle-row">
             <span class="toggle-info">
               <strong>Smooth Auto-Scrolling</strong>
-              <small>Top-to-bottom spring showcase</small>
+              <small>Uncheck to scroll manually with mouse wheel</small>
             </span>
             <input type="checkbox" id="toggleScroll" checked />
           </label>
@@ -157,15 +163,15 @@
           <label class="toggle-row">
             <span class="toggle-info">
               <strong>Camera Zoom on Key Sections</strong>
-              <small>Screen Studio style zoom-in on hotspots</small>
+              <small>Smooth zoom-in on page highlights</small>
             </span>
             <input type="checkbox" id="toggleZoom" checked />
           </label>
 
           <label class="toggle-row">
             <span class="toggle-info">
-              <strong>Social Caption Badge</strong>
-              <small>Floating link pill overlay</small>
+              <strong>Bottom Website Caption Pill</strong>
+              <small>Floating church/website title badge</small>
             </span>
             <input type="checkbox" id="toggleBadge" checked />
           </label>
@@ -173,24 +179,24 @@
           <div class="slider-row">
             <div class="slider-label">
               <span>Max Zoom Intensity</span>
-              <span id="zoomVal">1.45x</span>
+              <span id="zoomVal">1.40x</span>
             </div>
-            <input type="range" id="zoomSlider" min="110" max="200" value="145" />
+            <input type="range" id="zoomSlider" min="110" max="195" value="140" />
           </div>
 
           <div class="slider-row">
             <div class="slider-label">
               <span>Video Duration</span>
-              <span id="durationVal">10s</span>
+              <span id="durationVal">8s</span>
             </div>
-            <input type="range" id="durationSlider" min="5" max="20" value="10" />
+            <input type="range" id="durationSlider" min="4" max="20" value="8" />
           </div>
         </div>
 
         <!-- Interactive Hotspots List -->
         <div class="control-group">
           <div class="group-header">
-            <span class="group-title">DETECTED ZOOM HOTSPOTS</span>
+            <span class="group-title">4. CLICK & ZOOM HOTSPOTS</span>
           </div>
           <div id="hotspotList" class="hotspot-list"></div>
         </div>
@@ -198,12 +204,16 @@
 
       <!-- Center Stage: Live 60FPS Canvas & Timeline -->
       <main class="stage-area">
+        <div class="stage-banner">
+          <span>💡 <strong>Tip:</strong> Paste any URL above and click <strong>Load & Scroll Page</strong>. You can also scroll directly on the preview using your mouse wheel/trackpad!</span>
+        </div>
+
         <div class="canvas-viewport">
           <div class="canvas-container" id="canvasContainer">
             <canvas id="stageCanvas" width="1920" height="1080"></canvas>
             <div id="loadingOverlay" class="loading-overlay hidden">
               <div class="spinner"></div>
-              <div class="loading-text" id="loadingText">Extracting website & high-DPI visuals...</div>
+              <div class="loading-text" id="loadingText">Capturing real full-length webpage screenshot...</div>
             </div>
           </div>
         </div>
@@ -221,7 +231,7 @@
           </div>
 
           <div class="time-readout">
-            <span id="currentTime">0.0s</span> / <span id="totalTime">10.0s</span>
+            <span id="currentTime">0.0s</span> / <span id="totalTime">8.0s</span>
           </div>
         </div>
       </main>
@@ -231,10 +241,10 @@
   <!-- Export Modal / Toast -->
   <div id="downloadToast" class="download-toast hidden">
     <div class="toast-content">
-      <span class="toast-icon">🎬</span>
+      <span class="toast-icon">🕊️</span>
       <div>
-        <strong id="toastTitle">Screen Video Ready!</strong>
-        <p id="toastSub">Your rendered video has been downloaded.</p>
+        <strong id="toastTitle">ChurchReel Export Complete!</strong>
+        <p id="toastSub">Your file has been saved to your Downloads folder.</p>
       </div>
     </div>
     <button id="closeToastBtn" class="toast-close">✕</button>
