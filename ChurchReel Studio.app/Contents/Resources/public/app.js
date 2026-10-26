@@ -23,6 +23,11 @@ const state = {
   autoBlockCookies: true,
   cropTopPx: 0,
   cropBottomPx: 0,
+  eraseBoxMode: false,
+  eraseDragStart: null,
+  eraseDragCurrent: null,
+  lastWindowRect: null,
+  rawSiteImage: null,
   maxZoom: 1.40,
   duration: 8,           // seconds
   currentTime: 0,
@@ -428,6 +433,17 @@ function renderFrame(progress) {
   const contentX = winX;
   const contentY = winY + headerH;
 
+  // Store window rect in canvas coordinates for interactive "Erase Box" popup remover
+  state.lastWindowRect = {
+    x: stageCenterX + contentX,
+    y: stageCenterY + contentY,
+    w: contentW,
+    h: contentH,
+    scrollY: choreo.scrollY,
+    scaleToWindow,
+    cropTopSrc
+  };
+
   ctx.save();
   ctx.beginPath();
   ctx.rect(contentX, contentY, contentW, contentH);
@@ -445,6 +461,22 @@ function renderFrame(progress) {
       contentW,
       scaledTotalH
     );
+
+    // Draw interactive selection rectangle when user is dragging "✂️ Erase Box" over a cookie popup
+    if (state.eraseBoxMode && state.eraseDragStart && state.eraseDragCurrent) {
+      const rx = Math.min(state.eraseDragStart.relX, state.eraseDragCurrent.relX);
+      const ry = Math.min(state.eraseDragStart.relY, state.eraseDragCurrent.relY);
+      const rw = Math.abs(state.eraseDragCurrent.relX - state.eraseDragStart.relX);
+      const rh = Math.abs(state.eraseDragCurrent.relY - state.eraseDragStart.relY);
+      ctx.save();
+      ctx.fillStyle = 'rgba(217, 119, 6, 0.25)';
+      ctx.fillRect(contentX + rx, contentY + ry, rw, rh);
+      ctx.strokeStyle = '#d97706';
+      ctx.lineWidth = 2.5;
+      ctx.setLineDash([6, 4]);
+      ctx.strokeRect(contentX + rx, contentY + ry, rw, rh);
+      ctx.restore();
+    }
 
     // Scrollbar thumb on right edge
     if (scaledTotalH > contentH) {
@@ -777,6 +809,166 @@ window.__onNativeWebsiteCaptured = async function (payload) {
   }
 };
 
+// ============================================================================
+// Smart Canvas Cookie & GDPR Banner Detector + Inpaint Remover (Works in Firefox & all Web Browsers!)
+// ============================================================================
+function cleanCookieBannersFromImage(sourceImg, aggressive = false) {
+  try {
+    const W = sourceImg.width;
+    const H = sourceImg.height;
+    const off = document.createElement('canvas');
+    off.width = W;
+    off.height = H;
+    const c = off.getContext('2d', { willReadFrequently: true });
+    c.drawImage(sourceImg, 0, 0);
+
+    const imgData = c.getImageData(0, 0, W, H);
+    const data = imgData.data;
+
+    // Helper: compute horizontal row color uniformity & brightness for row y
+    const rowStats = (y) => {
+      let rSum = 0, gSum = 0, bSum = 0;
+      let variance = 0;
+      const step = 4;
+      let count = 0;
+      const baseIdx = y * W * 4;
+      const r0 = data[baseIdx], g0 = data[baseIdx + 1], b0 = data[baseIdx + 2];
+      for (let x = 0; x < W; x += step) {
+        const idx = baseIdx + x * 4;
+        const r = data[idx], g = data[idx + 1], b = data[idx + 2];
+        rSum += r; gSum += g; bSum += b;
+        variance += Math.abs(r - r0) + Math.abs(g - g0) + Math.abs(b - b0);
+        count++;
+      }
+      return {
+        r: rSum / count,
+        g: gSum / count,
+        b: bSum / count,
+        uniformity: variance / count
+      };
+    };
+
+    // 1. Detect fixed bottom cookie bar in the initial viewport fold (typical height 720..950px or bottom of image)
+    // Thum.io renders with an ~800-900px viewport fold where fixed bottom cookie banners sit!
+    const foldCandidates = [Math.min(H - 10, 768), Math.min(H - 10, 800), Math.min(H - 10, 900), H - 1];
+    let removedRegions = 0;
+
+    for (const foldY of foldCandidates) {
+      if (foldY < 300) continue;
+      // Look for a sharp horizontal edge 60..280px above foldY (typical bottom cookie bar height)
+      for (let barH = 70; barH <= 260; barH += 4) {
+        const topEdgeY = foldY - barH;
+        if (topEdgeY < 150) break;
+        const above = rowStats(topEdgeY - 3);
+        const inside = rowStats(topEdgeY + 6);
+        const colorJump = Math.abs(above.r - inside.r) + Math.abs(above.g - inside.g) + Math.abs(above.b - inside.b);
+
+        // If there is a strong full-width horizontal border and uniform banner background
+        if (colorJump > (aggressive ? 42 : 68) && inside.uniformity < (aggressive ? 85 : 55)) {
+          // Seamlessly replace the fixed bar region by blending the clean webpage background right above it
+          for (let y = topEdgeY - 2; y <= foldY; y++) {
+            const srcY = Math.max(0, topEdgeY - 6 - ((y - topEdgeY) % 12));
+            for (let x = 0; x < W; x++) {
+              const dstIdx = (y * W + x) * 4;
+              const srcIdx = (srcY * W + x) * 4;
+              data[dstIdx] = data[srcIdx];
+              data[dstIdx + 1] = data[srcIdx + 1];
+              data[dstIdx + 2] = data[srcIdx + 2];
+            }
+          }
+          removedRegions++;
+          break;
+        }
+      }
+    }
+
+    // 2. If aggressive ("Dismiss Banner" clicked), also detect & brighten darkened GDPR modal backdrop in top viewport
+    if (aggressive) {
+      // Check if there's a centered rectangular modal box between y=160..760
+      const topH = Math.min(H, 860);
+      const centerX1 = Math.floor(W * 0.18);
+      const centerX2 = Math.floor(W * 0.82);
+      const centerY1 = Math.floor(topH * 0.20);
+      const centerY2 = Math.floor(topH * 0.78);
+
+      // Sample clean background color from left/right margins
+      const sampleMargin = (y) => {
+        const idx = (y * W + Math.floor(W * 0.05)) * 4;
+        return [data[idx], data[idx + 1], data[idx + 2]];
+      };
+
+      // Check contrast between margin (dimmed backdrop) and center modal box
+      const mCol = sampleMargin(Math.floor(topH * 0.5));
+      const cIdx = (Math.floor(topH * 0.5) * W + Math.floor(W * 0.5)) * 4;
+      const centerBrightness = (data[cIdx] + data[cIdx + 1] + data[cIdx + 2]) / 3;
+      const marginBrightness = (mCol[0] + mCol[1] + mCol[2]) / 3;
+
+      if (Math.abs(centerBrightness - marginBrightness) > 45) {
+        // Fill the centered popup box with interpolated horizontal scanlines from the left/right edges
+        for (let y = centerY1; y <= centerY2; y++) {
+          const leftIdx = (y * W + Math.max(0, centerX1 - 8)) * 4;
+          const rightIdx = (y * W + Math.min(W - 1, centerX2 + 8)) * 4;
+          for (let x = centerX1; x <= centerX2; x++) {
+            const t = (x - centerX1) / (centerX2 - centerX1);
+            const idx = (y * W + x) * 4;
+            data[idx] = Math.round(data[leftIdx] * (1 - t) + data[rightIdx] * t);
+            data[idx + 1] = Math.round(data[leftIdx + 1] * (1 - t) + data[rightIdx + 1] * t);
+            data[idx + 2] = Math.round(data[leftIdx + 2] * (1 - t) + data[rightIdx + 2] * t);
+          }
+        }
+        removedRegions++;
+      }
+    }
+
+    c.putImageData(imgData, 0, 0);
+    return { canvas: off, removedRegions };
+  } catch (err) {
+    console.warn('Cookie canvas cleaner skipped:', err);
+    return { canvas: sourceImg, removedRegions: 0 };
+  }
+}
+
+// Erase a user-drawn rectangle on the webpage canvas by seamlessly filling from surrounding background
+function eraseRectFromSiteImage(srcX, srcY, srcW, srcH) {
+  if (!state.siteImage) return;
+  const W = state.siteImage.width;
+  const H = state.siteImage.height;
+  const off = document.createElement('canvas');
+  off.width = W;
+  off.height = H;
+  const c = off.getContext('2d', { willReadFrequently: true });
+  c.drawImage(state.siteImage, 0, 0);
+
+  const x1 = clamp(Math.floor(srcX), 0, W - 1);
+  const y1 = clamp(Math.floor(srcY), 0, H - 1);
+  const x2 = clamp(Math.floor(srcX + srcW), 0, W - 1);
+  const y2 = clamp(Math.floor(srcY + srcH), 0, H - 1);
+
+  const imgData = c.getImageData(0, 0, W, H);
+  const data = imgData.data;
+
+  for (let y = y1; y <= y2; y++) {
+    const leftSampleX = Math.max(0, x1 - 4);
+    const rightSampleX = Math.min(W - 1, x2 + 4);
+    const topSampleY = Math.max(0, y1 - 4);
+    const lIdx = (y * W + leftSampleX) * 4;
+    const rIdx = (y * W + rightSampleX) * 4;
+
+    for (let x = x1; x <= x2; x++) {
+      const t = (x2 > x1) ? (x - x1) / (x2 - x1) : 0.5;
+      const tIdx = (topSampleY * W + x) * 4;
+      const dstIdx = (y * W + x) * 4;
+      // Blend horizontal & vertical neighbors for clean seamless removal
+      data[dstIdx] = Math.round((data[lIdx] * (1 - t) + data[rIdx] * t) * 0.65 + data[tIdx] * 0.35);
+      data[dstIdx + 1] = Math.round((data[lIdx + 1] * (1 - t) + data[rIdx + 1] * t) * 0.65 + data[tIdx + 1] * 0.35);
+      data[dstIdx + 2] = Math.round((data[lIdx + 2] * (1 - t) + data[rIdx + 2] * t) * 0.65 + data[tIdx + 2] * 0.35);
+    }
+  }
+
+  c.putImageData(imgData, 0, 0);
+  state.siteImage = off;
+}
+
 // Fetch real full-page screenshot & metadata from any URL (works in Native macOS App, local server, AND browser!)
 async function extractWebsite(rawUrl) {
   const loadingOverlay = document.getElementById('loadingOverlay');
@@ -929,8 +1121,15 @@ async function extractWebsite(rawUrl) {
     };
 
     if (loadedRealImage) {
-      state.siteImage = loadedRealImage;
-      statusPill.textContent = 'Live Page Loaded ✓';
+      state.rawSiteImage = loadedRealImage;
+      if (state.autoBlockCookies) {
+        const cleaned = cleanCookieBannersFromImage(loadedRealImage, false);
+        state.siteImage = cleaned.canvas;
+        statusPill.textContent = cleaned.removedRegions > 0 ? 'Page Loaded (Cookie Cleaned ✓)' : 'Live Page Loaded ✓';
+      } else {
+        state.siteImage = loadedRealImage;
+        statusPill.textContent = 'Live Page Loaded ✓';
+      }
     } else {
       statusPill.textContent = 'Retrying Live Capture...';
     }
@@ -1463,25 +1662,99 @@ const dismissCookieBtn = document.getElementById('dismissCookieBtn');
 if (dismissCookieBtn) {
   dismissCookieBtn.addEventListener('click', () => {
     const statusPill = document.getElementById('extractStatus');
+    const cookieSub = document.getElementById('cookieStatusSub');
     // 1. In Native macOS App: trigger deep live DOM cookie dismissal + re-snapshot on the loaded page!
     if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.dismissCookiesNow) {
       statusPill.textContent = 'Dismissing Banner...';
       window.webkit.messageHandlers.dismissCookiesNow.postMessage({});
       return;
     }
-    // 2. In Web Browser Mode: automatically trim common bottom/top sticky cookie bar or re-capture
-    if (state.cropBottomPx === 0) {
-      state.cropBottomPx = 110;
-      if (cropBottomSlider) cropBottomSlider.value = 110;
-      const cbVal = document.getElementById('cropBottomVal');
-      if (cbVal) cbVal.textContent = '110px';
-      statusPill.textContent = 'Banner Trimmed ✓';
-    } else {
-      const currentUrl = document.getElementById('urlInput').value.trim();
-      if (currentUrl) extractWebsite(currentUrl);
+    // 2. In Firefox / Web Browser Mode: run aggressive smart canvas cookie-banner & modal detector + remover!
+    if (state.siteImage) {
+      const cleaned = cleanCookieBannersFromImage(state.siteImage, true);
+      state.siteImage = cleaned.canvas;
+      statusPill.textContent = 'Cookie Banner Removed ✓';
+      if (cookieSub) {
+        cookieSub.textContent = 'Banner cleaned! Or click "✂️ Erase Box" to drag over any popup.';
+      }
     }
   });
 }
+
+// Interactive "✂️ Erase Box" mode: lets user drag a rectangle directly over any cookie popup on the canvas in Firefox/Web!
+const eraseBoxBtn = document.getElementById('eraseBoxModeBtn');
+if (eraseBoxBtn) {
+  eraseBoxBtn.addEventListener('click', () => {
+    state.eraseBoxMode = !state.eraseBoxMode;
+    eraseBoxBtn.classList.toggle('active', state.eraseBoxMode);
+    const cookieSub = document.getElementById('cookieStatusSub');
+    if (state.eraseBoxMode) {
+      state.isPlaying = false;
+      document.getElementById('playIcon').textContent = '▶';
+      canvas.style.cursor = 'crosshair';
+      if (cookieSub) cookieSub.textContent = 'Drag a box over the cookie popup on the video to erase it!';
+    } else {
+      canvas.style.cursor = '';
+      if (cookieSub) cookieSub.textContent = 'Auto-detect & clean GDPR popups on load';
+    }
+  });
+}
+
+function getCanvasRelativeCoords(e) {
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = canvas.width / rect.width;
+  const scaleY = canvas.height / rect.height;
+  const cx = (e.clientX - rect.left) * scaleX;
+  const cy = (e.clientY - rect.top) * scaleY;
+  const win = state.lastWindowRect;
+  if (!win) return null;
+  return {
+    relX: clamp(cx - win.x, 0, win.w),
+    relY: clamp(cy - win.y, 0, win.h)
+  };
+}
+
+canvas.addEventListener('mousedown', (e) => {
+  if (!state.eraseBoxMode || !state.siteImage) return;
+  const pt = getCanvasRelativeCoords(e);
+  if (pt) {
+    state.eraseDragStart = pt;
+    state.eraseDragCurrent = pt;
+  }
+});
+
+window.addEventListener('mousemove', (e) => {
+  if (!state.eraseBoxMode || !state.eraseDragStart) return;
+  const pt = getCanvasRelativeCoords(e);
+  if (pt) state.eraseDragCurrent = pt;
+});
+
+window.addEventListener('mouseup', () => {
+  if (!state.eraseBoxMode || !state.eraseDragStart || !state.eraseDragCurrent) return;
+  const win = state.lastWindowRect;
+  if (win && state.siteImage) {
+    const rx = Math.min(state.eraseDragStart.relX, state.eraseDragCurrent.relX);
+    const ry = Math.min(state.eraseDragStart.relY, state.eraseDragCurrent.relY);
+    const rw = Math.abs(state.eraseDragCurrent.relX - state.eraseDragStart.relX);
+    const rh = Math.abs(state.eraseDragCurrent.relY - state.eraseDragStart.relY);
+
+    if (rw > 10 && rh > 10) {
+      const srcX = rx / win.scaleToWindow;
+      const srcY = win.cropTopSrc + (ry + win.scrollY) / win.scaleToWindow;
+      const srcW = rw / win.scaleToWindow;
+      const srcH = rh / win.scaleToWindow;
+      eraseRectFromSiteImage(srcX, srcY, srcW, srcH);
+      document.getElementById('extractStatus').textContent = 'Popup Erased ✓';
+    }
+  }
+  state.eraseDragStart = null;
+  state.eraseDragCurrent = null;
+  state.eraseBoxMode = false;
+  if (eraseBoxBtn) eraseBoxBtn.classList.remove('active');
+  canvas.style.cursor = '';
+  const cookieSub = document.getElementById('cookieStatusSub');
+  if (cookieSub) cookieSub.textContent = 'Popup erased! Press Play ▶ to resume scrolling.';
+});
 
 document.getElementById('zoomSlider').addEventListener('input', (e) => {
   state.maxZoom = Number(e.target.value) / 100;

@@ -387,6 +387,12 @@ input, textarea {
   transform: translateY(-1px);
 }
 
+.btn-cookie-dismiss.active {
+  background: #d97706;
+  color: #ffffff;
+  border-color: #92400e;
+}
+
 .compact-toggle {
   padding: 4px 0 !important;
 }

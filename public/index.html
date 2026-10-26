@@ -79,11 +79,14 @@
           <div class="cookie-buster-box">
             <div class="cookie-buster-header">
               <span>🍪 <strong>Cookie & Popup Blocker</strong></span>
-              <button type="button" id="dismissCookieBtn" class="btn-cookie-dismiss" title="Re-scan and strip stubborn cookie banners">Dismiss Banner</button>
+              <div style="display: flex; gap: 4px;">
+                <button type="button" id="eraseBoxModeBtn" class="btn-cookie-dismiss" title="Draw a rectangle directly on the webpage to erase any centered popup">✂️ Erase Box</button>
+                <button type="button" id="dismissCookieBtn" class="btn-cookie-dismiss" title="Auto-detect and remove cookie banners">Dismiss Banner</button>
+              </div>
             </div>
             <label class="toggle-row compact-toggle">
               <span class="toggle-info">
-                <small>Auto-accept & strip GDPR popups on load</small>
+                <small id="cookieStatusSub">Auto-detect & clean GDPR popups on load</small>
               </span>
               <input type="checkbox" id="toggleAutoCookie" checked />
             </label>
