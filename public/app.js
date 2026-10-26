@@ -27,11 +27,11 @@ const state = {
   isRecording: false,
   siteImage: null,
   metadata: {
-    title: 'Vatican News — Official Catholic Portal',
-    description: 'All the news of the Pope, the Holy See, and the Catholic Church around the world.',
-    siteName: 'Vatican News',
-    hostname: 'vaticannews.va',
-    fullUrl: 'https://www.vaticannews.va/en.html',
+    title: 'No website loaded yet',
+    description: 'Paste or type a website URL above and click "Load & Scroll Page".',
+    siteName: '',
+    hostname: '',
+    fullUrl: '',
     viewportWidth: 1440,
     viewportHeight: 900,
     captureHeight: 2850,
@@ -405,7 +405,7 @@ function renderFrame(progress) {
     ctx.font = '600 11.5px -apple-system, BlinkMacSystemFont, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    const domainLabel = `🔒 ${state.metadata.hostname || 'vaticannews.va'}`;
+    const domainLabel = state.metadata.hostname ? `🔒 ${state.metadata.hostname}` : '⛪ Enter a website URL above...';
     ctx.fillText(domainLabel, winX + winW / 2, dotY);
 
     // Device tag on right side of header bar
@@ -434,30 +434,43 @@ function renderFrame(progress) {
       contentW,
       scaledTotalH
     );
+
+    // Scrollbar thumb on right edge
+    if (scaledTotalH > contentH) {
+      const trackH = contentH - 14;
+      const thumbH = Math.max(30, (contentH / scaledTotalH) * trackH);
+      const maxScroll = scaledTotalH - contentH;
+      const thumbY = contentY + 7 + (choreo.scrollY / maxScroll) * (trackH - thumbH);
+      roundRectPath(ctx, contentX + contentW - 8, thumbY, 4.5, thumbH, 2.5);
+      ctx.fillStyle = 'rgba(100, 116, 139, 0.5)';
+      ctx.fill();
+    }
+
+    if (state.simulateCursor) {
+      drawSimulatedCursor(
+        ctx,
+        contentX + choreo.cursorX,
+        contentY + choreo.cursorY,
+        choreo.clickRipple,
+        choreo.activeLabel
+      );
+    }
   } else {
-    ctx.fillStyle = '#ffffff';
+    // Clean Empty State when no website has been loaded yet
+    ctx.fillStyle = '#fcfbf7';
     ctx.fillRect(contentX, contentY, contentW, contentH);
-  }
 
-  // Scrollbar thumb on right edge
-  if (scaledTotalH > contentH) {
-    const trackH = contentH - 14;
-    const thumbH = Math.max(30, (contentH / scaledTotalH) * trackH);
-    const maxScroll = scaledTotalH - contentH;
-    const thumbY = contentY + 7 + (choreo.scrollY / maxScroll) * (trackH - thumbH);
-    roundRectPath(ctx, contentX + contentW - 8, thumbY, 4.5, thumbH, 2.5);
-    ctx.fillStyle = 'rgba(100, 116, 139, 0.5)';
-    ctx.fill();
-  }
+    ctx.fillStyle = '#92400e';
+    ctx.font = '700 22px Georgia, serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('⛪ No Website Loaded Yet', contentX + contentW / 2, contentY + contentH / 2 - 16);
 
-  if (state.simulateCursor) {
-    drawSimulatedCursor(
-      ctx,
-      contentX + choreo.cursorX,
-      contentY + choreo.cursorY,
-      choreo.clickRipple,
-      choreo.activeLabel
-    );
+    ctx.fillStyle = '#64748b';
+    ctx.font = '500 14px -apple-system, BlinkMacSystemFont, sans-serif';
+    ctx.fillText('Paste or type any website URL in the top bar and click "Load & Scroll Page"', contentX + contentW / 2, contentY + contentH / 2 + 18);
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'alphabetic';
   }
 
   ctx.restore();
@@ -1375,7 +1388,8 @@ document.querySelectorAll('#frameGroup .seg-btn').forEach((btn) => {
     if (stagePill) stagePill.textContent = state.deviceName;
 
     if ((prevFrame === 'iphone') !== (state.frame === 'iphone')) {
-      extractWebsite(document.getElementById('urlInput').value.trim() || 'demo');
+      const currentUrl = document.getElementById('urlInput').value.trim();
+      if (currentUrl) extractWebsite(currentUrl);
     }
   });
 });
@@ -1456,8 +1470,7 @@ document.getElementById('closeToastBtn').addEventListener('click', () => {
   document.getElementById('downloadToast').classList.add('hidden');
 });
 
-// Initialize with the entered URL
+// Start empty with no website loaded until user enters a URL
 window.addEventListener('DOMContentLoaded', () => {
-  extractWebsite(document.getElementById('urlInput').value.trim() || 'https://www.vaticannews.va/en.html');
   requestAnimationFrame(tick);
 });
