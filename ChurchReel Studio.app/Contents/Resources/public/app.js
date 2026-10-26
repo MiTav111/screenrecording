@@ -819,7 +819,8 @@ async function extractWebsite(rawUrl) {
     let extractedMeta = null;
 
     // 1. If running on local Node server (http://localhost:3456), try backend first
-    if (!isDemo && window.location.protocol.startsWith('http')) {
+    const isLocalServer = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    if (!isDemo && isLocalServer) {
       try {
         const resp = await fetch('/api/extract', {
           method: 'POST',
@@ -843,45 +844,69 @@ async function extractWebsite(rawUrl) {
       } catch (_) {}
     }
 
-    // 2. If opened via file:// or local Chrome didn't return a bitmap, fetch REAL full-page screenshot via Microlink Public API!
+    // 2. Live Web Browser Mode (GitHub Pages / Static Hosting):
+    // Use Thum.io Direct Tall PNG Stream (CORS-enabled, no rate-limit wall) + Microlink fallback
     if (!isDemo && !loadedRealImage) {
-      try {
-        const apiUrl = `https://api.microlink.io/?url=${encodeURIComponent(targetUrl)}&screenshot=true&meta=true&viewport.width=${vw}&viewport.height=${captureHeight}&viewport.isMobile=${isMobile}`;
-        const mlResp = await fetch(apiUrl);
-        const mlJson = await mlResp.json();
-        if (mlJson && mlJson.status === 'success' && mlJson.data) {
-          const d = mlJson.data;
-          const parsedHost = new URL(targetUrl).hostname.replace(/^www\./, '');
-          extractedMeta = {
-            title: d.title || parsedHost,
-            description: d.description || `Live interactive scroll showcase of ${parsedHost}`,
-            siteName: d.publisher || parsedHost,
-            hostname: parsedHost,
-            fullUrl: targetUrl,
-            viewportWidth: vw,
-            viewportHeight: vh,
-            captureHeight,
-            hotspots: [
-              { centerX: Math.round(vw * 0.48), centerY: Math.round(vh * 0.52), label: (d.title || 'Header Highlight').slice(0, 24), zoomScale: 1.42 },
-              { centerX: Math.round(vw * 0.34), centerY: Math.round(captureHeight * 0.42), label: 'Featured Section', zoomScale: 1.38 },
-              { centerX: Math.round(vw * 0.66), centerY: Math.round(captureHeight * 0.66), label: 'Page Content Spotlight', zoomScale: 1.42 },
-              { centerX: Math.round(vw * 0.50), centerY: Math.round(captureHeight * 0.85), label: 'Footer & Links', zoomScale: 1.38 }
-            ]
-          };
+      const parsedHost = (() => {
+        try { return new URL(targetUrl).hostname.replace(/^www\./, ''); }
+        catch (_) { return targetUrl.replace(/^https?:\/\//i, '').split('/')[0]; }
+      })();
 
-          if (d.screenshot && d.screenshot.url) {
+      const brandTitle = parsedHost.split('.')[0].charAt(0).toUpperCase() + parsedHost.split('.')[0].slice(1);
+      extractedMeta = {
+        title: `${brandTitle} — ${parsedHost}`,
+        description: `Live full-page interactive scroll showcase of ${targetUrl}`,
+        siteName: brandTitle,
+        hostname: parsedHost,
+        fullUrl: targetUrl,
+        viewportWidth: vw,
+        viewportHeight: vh,
+        captureHeight,
+        hotspots: [
+          { centerX: Math.round(vw * 0.48), centerY: Math.round(vh * 0.50), label: `${brandTitle} Hero`, zoomScale: 1.42 },
+          { centerX: Math.round(vw * 0.34), centerY: Math.round(captureHeight * 0.40), label: 'Featured Section', zoomScale: 1.38 },
+          { centerX: Math.round(vw * 0.66), centerY: Math.round(captureHeight * 0.65), label: 'Content Spotlight', zoomScale: 1.42 },
+          { centerX: Math.round(vw * 0.50), centerY: Math.round(captureHeight * 0.85), label: 'Footer & Links', zoomScale: 1.38 }
+        ]
+      };
+
+      // Primary: Thum.io Tall Full-Page Screenshot Stream (supports CORS & tall crop up to 2400px)
+      try {
+        const thumUrl = `https://image.thum.io/get/width/${vw}/crop/2400/noanimate/${targetUrl}`;
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        await new Promise((res, rej) => {
+          const timer = setTimeout(() => rej(new Error('Thum timeout')), 12000);
+          img.onload = () => { clearTimeout(timer); res(); };
+          img.onerror = (err) => { clearTimeout(timer); rej(err); };
+          img.src = thumUrl;
+        });
+        if (img.width > 50 && img.height > 50) {
+          loadedRealImage = img;
+        }
+      } catch (e) {
+        console.warn('Thum.io screenshot fallback:', e);
+      }
+
+      // Secondary fallback: Microlink API if Thum.io didn't load
+      if (!loadedRealImage) {
+        try {
+          const apiUrl = `https://api.microlink.io/?url=${encodeURIComponent(targetUrl)}&screenshot=true&meta=true&viewport.width=${vw}&viewport.height=${captureHeight}&viewport.isMobile=${isMobile}`;
+          const mlResp = await fetch(apiUrl);
+          const mlJson = await mlResp.json();
+          if (mlJson && mlJson.status === 'success' && mlJson.data && mlJson.data.screenshot && mlJson.data.screenshot.url) {
+            if (mlJson.data.title) extractedMeta.title = mlJson.data.title;
+            if (mlJson.data.description) extractedMeta.description = mlJson.data.description;
             const img = new Image();
             img.crossOrigin = 'anonymous';
             await new Promise((res, rej) => {
               img.onload = res;
               img.onerror = rej;
-              img.src = d.screenshot.url;
+              img.src = mlJson.data.screenshot.url;
             });
             loadedRealImage = img;
           }
-        }
-      } catch (e) {
-        console.warn('Microlink live screenshot fallback:', e);
+        } catch (_) {}
       }
     }
 
