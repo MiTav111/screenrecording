@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SiteReel Studio — Turn Any Website Link Into a Cinematic Screen Video</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <!-- Top Bar -->
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-logo">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4">
+            <rect x="2" y="3" width="20" height="14" rx="2.5"></rect>
+            <path d="M8 21h8"></path>
+            <path d="M12 17v4"></path>
+            <polygon points="10 8 15 10.5 10 13 10 8" fill="currentColor"></polygon>
+          </svg>
+        </div>
+        <div>
+          <span class="brand-title">SiteReel Studio</span>
+          <span class="brand-badge">PRO ENGINE</span>
+        </div>
+      </div>
+
+      <!-- URL Input Bar -->
+      <form id="extractForm" class="url-bar">
+        <div class="url-input-wrap">
+          <span class="url-icon">🔗</span>
+          <input
+            type="text"
+            id="urlInput"
+            placeholder="Paste any website link (e.g. stripe.com, apple.com, or 'demo')"
+            value="pulseflow.app"
+            autocomplete="off"
+          />
+          <div class="quick-presets">
+            <button type="button" class="preset-chip" data-url="pulseflow.app">Demo Social App</button>
+            <button type="button" class="preset-chip" data-url="https://example.com">Example.com</button>
+          </div>
+        </div>
+        <button type="submit" id="extractBtn" class="btn-extract">
+          <span class="btn-extract-text">Extract & Animate</span>
+        </button>
+      </form>
+
+      <div class="topbar-actions">
+        <button id="exportVideoBtn" class="btn-export">
+          <span class="rec-dot"></span>
+          <span id="exportBtnLabel">Export Video (.webm)</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Workspace -->
+    <div class="workspace">
+      <!-- Left Sidebar Controls -->
+      <aside class="sidebar">
+        <!-- Extracted Site Info Card -->
+        <div class="control-group extracted-card" id="siteMetaCard">
+          <div class="group-header">
+            <span class="group-title">EXTRACTED LINK DATA</span>
+            <span class="status-pill" id="extractStatus">Ready</span>
+          </div>
+          <div class="meta-title" id="metaTitle">PulseFlow — Next-Gen Creator Social Platform</div>
+          <div class="meta-url" id="metaUrl">pulseflow.app</div>
+          <div class="meta-desc" id="metaDesc">Share interactive stories, live drops, and visual reels with zero friction.</div>
+        </div>
+
+        <!-- 1. Aspect Ratio (Social Media Presets) -->
+        <div class="control-group">
+          <div class="group-header">
+            <span class="group-title">4. SOCIAL ASPECT RATIO</span>
+          </div>
+          <div class="segmented-grid cols-3" id="aspectGroup">
+            <button type="button" class="seg-btn active" data-aspect="16:9">
+              <span class="ratio-icon ratio-16-9"></span>
+              <span>16:9</span>
+              <small>YouTube / X</small>
+            </button>
+            <button type="button" class="seg-btn" data-aspect="9:16">
+              <span class="ratio-icon ratio-9-16"></span>
+              <span>9:16</span>
+              <small>TikTok / Reels</small>
+            </button>
+            <button type="button" class="seg-btn" data-aspect="1:1">
+              <span class="ratio-icon ratio-1-1"></span>
+              <span>1:1</span>
+              <small>Feed / Post</small>
+            </button>
+          </div>
+        </div>
+
+        <!-- 2. Browser & Device Frame + Padding + Backdrop -->
+        <div class="control-group">
+          <div class="group-header">
+            <span class="group-title">2. DEVICE FRAME & BACKDROP</span>
+          </div>
+          <div class="segmented-grid cols-2" id="frameGroup">
+            <button type="button" class="seg-btn active" data-frame="macos-dark">macOS Dark</button>
+            <button type="button" class="seg-btn" data-frame="macos-light">macOS Light</button>
+            <button type="button" class="seg-btn" data-frame="iphone">iPhone 16 Pro</button>
+            <button type="button" class="seg-btn" data-frame="glass">Minimal Glass</button>
+          </div>
+
+          <div class="sub-label">Wallpaper Gradient</div>
+          <div class="swatch-row" id="bgSwatches">
+            <button type="button" class="swatch active" data-bg="aurora" style="background: linear-gradient(135deg, #4f46e5, #9333ea, #ec4899);" title="Aurora"></button>
+            <button type="button" class="swatch" data-bg="sunset" style="background: linear-gradient(135deg, #f97316, #ef4444, #8b5cf6);" title="Sunset Glow"></button>
+            <button type="button" class="swatch" data-bg="cyber" style="background: linear-gradient(135deg, #06b6d4, #3b82f6, #1e1b4b);" title="Cyber Ocean"></button>
+            <button type="button" class="swatch" data-bg="emerald" style="background: linear-gradient(135deg, #10b981, #059669, #0f172a);" title="Emerald"></button>
+            <button type="button" class="swatch" data-bg="noir" style="background: linear-gradient(135deg, #1e293b, #0f172a, #020617);" title="Studio Noir"></button>
+            <button type="button" class="swatch" data-bg="cotton" style="background: linear-gradient(135deg, #f472b6, #a78bfa, #38bdf8);" title="Cotton Candy"></button>
+          </div>
+
+          <div class="slider-row">
+            <div class="slider-label">
+              <span>Stage Padding</span>
+              <span id="paddingVal">64px</span>
+            </div>
+            <input type="range" id="paddingSlider" min="20" max="140" value="64" />
+          </div>
+
+          <div class="slider-row">
+            <div class="slider-label">
+              <span>Window Shadow & 3D Tilt</span>
+              <span id="tiltVal">Dynamic</span>
+            </div>
+            <input type="range" id="tiltSlider" min="0" max="100" value="65" />
+          </div>
+        </div>
+
+        <!-- 3. Smooth Scroll & Simulated Cursor / Zoom Choreography -->
+        <div class="control-group">
+          <div class="group-header">
+            <span class="group-title">1 & 3. MOTION & CURSOR EFFECTS</span>
+          </div>
+
+          <label class="toggle-row">
+            <span class="toggle-info">
+              <strong>Smooth Auto-Scrolling</strong>
+              <small>Top-to-bottom spring showcase</small>
+            </span>
+            <input type="checkbox" id="toggleScroll" checked />
+          </label>
+
+          <label class="toggle-row">
+            <span class="toggle-info">
+              <strong>Simulated Cursor & Clicks</strong>
+              <small>Animated pointer with click ripples</small>
+            </span>
+            <input type="checkbox" id="toggleCursor" checked />
+          </label>
+
+          <label class="toggle-row">
+            <span class="toggle-info">
+              <strong>Camera Zoom on Key Sections</strong>
+              <small>Screen Studio style zoom-in on hotspots</small>
+            </span>
+            <input type="checkbox" id="toggleZoom" checked />
+          </label>
+
+          <label class="toggle-row">
+            <span class="toggle-info">
+              <strong>Social Caption Badge</strong>
+              <small>Floating link pill overlay</small>
+            </span>
+            <input type="checkbox" id="toggleBadge" checked />
+          </label>
+
+          <div class="slider-row">
+            <div class="slider-label">
+              <span>Max Zoom Intensity</span>
+              <span id="zoomVal">1.45x</span>
+            </div>
+            <input type="range" id="zoomSlider" min="110" max="200" value="145" />
+          </div>
+
+          <div class="slider-row">
+            <div class="slider-label">
+              <span>Video Duration</span>
+              <span id="durationVal">10s</span>
+            </div>
+            <input type="range" id="durationSlider" min="5" max="20" value="10" />
+          </div>
+        </div>
+
+        <!-- Interactive Hotspots List -->
+        <div class="control-group">
+          <div class="group-header">
+            <span class="group-title">DETECTED ZOOM HOTSPOTS</span>
+          </div>
+          <div id="hotspotList" class="hotspot-list"></div>
+        </div>
+      </aside>
+
+      <!-- Center Stage: Live 60FPS Canvas & Timeline -->
+      <main class="stage-area">
+        <div class="canvas-viewport">
+          <div class="canvas-container" id="canvasContainer">
+            <canvas id="stageCanvas" width="1920" height="1080"></canvas>
+            <div id="loadingOverlay" class="loading-overlay hidden">
+              <div class="spinner"></div>
+              <div class="loading-text" id="loadingText">Extracting website & high-DPI visuals...</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Playback & Timeline Scrubber Bar -->
+        <div class="timeline-bar">
+          <button id="playPauseBtn" class="btn-play" title="Play / Pause">
+            <span id="playIcon">⏸</span>
+          </button>
+          <button id="restartBtn" class="btn-icon" title="Restart">↺</button>
+
+          <div class="scrubber-wrap">
+            <div class="scrubber-markers" id="scrubberMarkers"></div>
+            <input type="range" id="timelineScrubber" min="0" max="1000" value="0" />
+          </div>
+
+          <div class="time-readout">
+            <span id="currentTime">0.0s</span> / <span id="totalTime">10.0s</span>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <!-- Export Modal / Toast -->
+  <div id="downloadToast" class="download-toast hidden">
+    <div class="toast-content">
+      <span class="toast-icon">🎬</span>
+      <div>
+        <strong id="toastTitle">Screen Video Ready!</strong>
+        <p id="toastSub">Your rendered video has been downloaded.</p>
+      </div>
+    </div>
+    <button id="closeToastBtn" class="toast-close">✕</button>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

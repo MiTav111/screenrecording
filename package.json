@@ -1,0 +1,10 @@
+{
+  "name": "site-reel-studio",
+  "version": "1.0.0",
+  "description": "Automated Website-to-Screen-Video Studio with smooth scroll, browser frames, smart cursor zoom, and social aspect ratios",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "license": "MIT"
+}
