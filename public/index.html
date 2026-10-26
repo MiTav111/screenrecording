@@ -61,7 +61,7 @@
     <div class="workspace">
       <!-- Left Sidebar Controls -->
       <aside class="sidebar">
-        <!-- Extracted Site Info Card + Active Device Display -->
+        <!-- Extracted Site Info Card + Active Device Display + Cookie Buster -->
         <div class="control-group extracted-card" id="siteMetaCard">
           <div class="group-header">
             <span class="group-title">LOADED WEBPAGE</span>
@@ -74,6 +74,34 @@
             <span class="device-used-badge" id="activeDeviceReadout">💻 MacBook Pro 16" (macOS Light • 1440×900)</span>
           </div>
           <div class="meta-desc" id="metaDesc">Paste or type a website URL above and click "Load & Scroll Page" to begin.</div>
+
+          <!-- Cookie Banner Controls -->
+          <div class="cookie-buster-box">
+            <div class="cookie-buster-header">
+              <span>🍪 <strong>Cookie & Popup Blocker</strong></span>
+              <button type="button" id="dismissCookieBtn" class="btn-cookie-dismiss" title="Re-scan and strip stubborn cookie banners">Dismiss Banner</button>
+            </div>
+            <label class="toggle-row compact-toggle">
+              <span class="toggle-info">
+                <small>Auto-accept & strip GDPR popups on load</small>
+              </span>
+              <input type="checkbox" id="toggleAutoCookie" checked />
+            </label>
+            <div class="slider-row">
+              <div class="slider-label">
+                <span>Trim Top Sticky Bar</span>
+                <span id="cropTopVal">0px</span>
+              </div>
+              <input type="range" id="cropTopSlider" min="0" max="260" value="0" />
+            </div>
+            <div class="slider-row">
+              <div class="slider-label">
+                <span>Trim Bottom Cookie Bar</span>
+                <span id="cropBottomVal">0px</span>
+              </div>
+              <input type="range" id="cropBottomSlider" min="0" max="320" value="0" />
+            </div>
+          </div>
         </div>
 
         <!-- 1. Social Aspect Ratio -->

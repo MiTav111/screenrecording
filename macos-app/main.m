@@ -33,6 +33,7 @@
     [config.userContentController addScriptMessageHandler:self name:@"saveFile"];
     [config.userContentController addScriptMessageHandler:self name:@"captureSite"];
     [config.userContentController addScriptMessageHandler:self name:@"pasteClipboard"];
+    [config.userContentController addScriptMessageHandler:self name:@"dismissCookiesNow"];
     [config.preferences setValue:@YES forKey:@"allowFileAccessFromFileURLs"];
 
     self.webView = [[WKWebView alloc] initWithFrame:[[self.window contentView] bounds] configuration:config];
@@ -93,12 +94,19 @@
     // 3. Native Live Website Loader & Full-Height Snapshot Engine
     if ([message.name isEqualToString:@"captureSite"] && [message.body isKindOfClass:[NSDictionary class]]) {
         NSDictionary *dict = (NSDictionary *)message.body;
-        NSString *urlStr = dict[@"url"] ?: @"https://www.vaticannews.va/en.html";
+        NSString *urlStr = dict[@"url"] ?: @"";
         CGFloat width = [dict[@"width"] doubleValue] > 0 ? [dict[@"width"] doubleValue] : 1440.0;
         CGFloat height = [dict[@"height"] doubleValue] > 0 ? [dict[@"height"] doubleValue] : 2850.0;
         BOOL isMobile = [dict[@"isMobile"] boolValue];
 
         [self startNativeCaptureForURL:urlStr width:width height:height isMobile:isMobile];
+        return;
+    }
+
+    // 4. On-Demand "Dismiss Banner" Button: Re-run deep cookie auto-accept & DOM stripper and re-snapshot immediately
+    if ([message.name isEqualToString:@"dismissCookiesNow"]) {
+        [self finalizeCapture];
+        return;
     }
 }
 
@@ -162,58 +170,92 @@
     self.captureInProgress = NO;
     [self.captureTimeoutTimer invalidate];
 
-    // Hide common cookie banners & get page title/description
-    NSString *prepJS = @"(() => {"
-        "const sels = ['[id*=\"cookie\" i]', '[class*=\"cookie\" i]', '[id*=\"consent\" i]', '[class*=\"consent\" i]', '.cc-window'];"
-        "sels.forEach(s => document.querySelectorAll(s).forEach(el => { el.style.display = 'none'; }));"
-        "const descEl = document.querySelector('meta[property=\"og:description\"]') || document.querySelector('meta[name=\"description\"]');"
-        "return { title: document.title || location.hostname, description: descEl ? descEl.content : '', hostname: location.hostname.replace(/^www\\./, '') };"
+    // Step 1: Click common GDPR "Accept / Agree / Allow" buttons and strip cookie frameworks
+    NSString *busterJS = @"(() => {"
+        "const acceptWords = /^(accept|accept all|allow all|agree|i agree|got it|ok|okay|consent|alle akzeptieren|akzeptieren|zustimmen|tout accepter|accepter|accetta|accetta tutti|aceptar|aceptar todo)$/i;"
+        "const partialWords = /(accept all|allow all|alle akzeptieren|tout accepter|accetta tutti|aceptar todo|accept cookies|i accept)/i;"
+        "const btns = Array.from(document.querySelectorAll('button, a, [role=\"button\"], input[type=\"button\"], input[type=\"submit\"]'));"
+        "for (const b of btns) {"
+        "  const txt = (b.innerText || b.value || b.getAttribute('aria-label') || '').trim();"
+        "  if (acceptWords.test(txt) || (txt.length < 36 && partialWords.test(txt))) {"
+        "    try { b.click(); } catch(_) {}"
+        "  }"
+        "}"
+        "const sels = ["
+        "  '#onetrust-consent-sdk', '#onetrust-banner-sdk', '#CybotCookiebotDialog', '#CybotCookiebotDialogBodyUnderlay',"
+        "  '#usercentrics-root', '.qc-cmp2-container', '.fc-consent-root', '.cc-window', '.cc-banner', '#didomi-host',"
+        "  '#cookie-law-info-bar', '.cli-modal-backdrop', '#borlabs-cookie', '.cmplz-cookiebanner', '#sp_message_container',"
+        "  '[id*=\"cookie\" i]', '[class*=\"cookie-banner\" i]', '[class*=\"cookie-consent\" i]', '[id*=\"consent\" i]',"
+        "  '[class*=\"consent-banner\" i]', '[class*=\"gdpr\" i]', '[id*=\"gdpr\" i]', '[aria-label*=\"cookie\" i]'"
+        "];"
+        "sels.forEach(s => document.querySelectorAll(s).forEach(el => { try { el.remove(); } catch(_) { el.style.display = 'none'; } }));"
+        "document.querySelectorAll('*').forEach(el => {"
+        "  const st = window.getComputedStyle(el);"
+        "  if ((st.position === 'fixed' || st.position === 'sticky') && parseInt(st.zIndex || '0', 10) > 999) {"
+        "    const r = el.getBoundingClientRect();"
+        "    if (r.height > 45 && (r.top > window.innerHeight * 0.5 || r.height > window.innerHeight * 0.4)) {"
+        "      el.style.display = 'none';"
+        "    }"
+        "  }"
+        "});"
+        "document.documentElement.style.setProperty('overflow', 'auto', 'important');"
+        "document.body.style.setProperty('overflow', 'auto', 'important');"
         "})()";
 
-    [self.captureWebView evaluateJavaScript:prepJS completionHandler:^(id result, NSError *error) {
-        NSString *pageTitle = @"Official Webpage";
-        NSString *pageDesc = @"Interactive website scroll showcase.";
-        NSURL *parsed = [NSURL URLWithString:self.pendingUrl];
-        NSString *host = parsed.host ? [parsed.host stringByReplacingOccurrencesOfString:@"www." withString:@""] : @"vaticannews.va";
+    [self.captureWebView evaluateJavaScript:busterJS completionHandler:^(id _res, NSError *_err) {
+        // Wait 450ms for any fade-out animation after clicking Accept, then take snapshot
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.45 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            NSString *metaJS = @"(() => {"
+                "const descEl = document.querySelector('meta[property=\"og:description\"]') || document.querySelector('meta[name=\"description\"]');"
+                "return { title: document.title || location.hostname, description: descEl ? descEl.content : '', hostname: location.hostname.replace(/^www\\./, '') };"
+                "})()";
 
-        if ([result isKindOfClass:[NSDictionary class]]) {
-            NSDictionary *info = (NSDictionary *)result;
-            if ([info[@"title"] isKindOfClass:[NSString class]] && [info[@"title"] length] > 0) pageTitle = info[@"title"];
-            if ([info[@"description"] isKindOfClass:[NSString class]] && [info[@"description"] length] > 0) pageDesc = info[@"description"];
-            if ([info[@"hostname"] isKindOfClass:[NSString class]] && [info[@"hostname"] length] > 0) host = info[@"hostname"];
-        }
+            [self.captureWebView evaluateJavaScript:metaJS completionHandler:^(id result, NSError *error) {
+                NSString *pageTitle = @"Official Webpage";
+                NSString *pageDesc = @"Interactive website scroll showcase.";
+                NSURL *parsed = [NSURL URLWithString:self.pendingUrl ?: @""];
+                NSString *host = parsed.host ? [parsed.host stringByReplacingOccurrencesOfString:@"www." withString:@""] : @"";
 
-        WKSnapshotConfiguration *snapConfig = [[WKSnapshotConfiguration alloc] init];
-        snapConfig.rect = NSMakeRect(0, 0, self.pendingWidth, self.pendingHeight);
-        snapConfig.snapshotWidth = @(self.pendingWidth);
-
-        [self.captureWebView takeSnapshotWithConfiguration:snapConfig completionHandler:^(NSImage *snapshotImage, NSError *snapErr) {
-            NSString *dataUrl = @"";
-            if (snapshotImage) {
-                CGImageRef cgRef = [snapshotImage CGImageForProposedRect:NULL context:nil hints:nil];
-                if (cgRef) {
-                    NSBitmapImageRep *bmp = [[NSBitmapImageRep alloc] initWithCGImage:cgRef];
-                    NSData *jpgData = [bmp representationUsingType:NSBitmapImageFileTypeJPEG properties:@{NSImageCompressionFactor: @(0.88)}];
-                    if (jpgData) {
-                        NSString *b64 = [jpgData base64EncodedStringWithOptions:0];
-                        dataUrl = [NSString stringWithFormat:@"data:image/jpeg;base64,%@", b64];
-                    }
+                if ([result isKindOfClass:[NSDictionary class]]) {
+                    NSDictionary *info = (NSDictionary *)result;
+                    if ([info[@"title"] isKindOfClass:[NSString class]] && [info[@"title"] length] > 0) pageTitle = info[@"title"];
+                    if ([info[@"description"] isKindOfClass:[NSString class]] && [info[@"description"] length] > 0) pageDesc = info[@"description"];
+                    if ([info[@"hostname"] isKindOfClass:[NSString class]] && [info[@"hostname"] length] > 0) host = info[@"hostname"];
                 }
-            }
 
-            NSDictionary *payload = @{
-                @"title": pageTitle,
-                @"description": pageDesc,
-                @"hostname": host,
-                @"fullUrl": self.pendingUrl ?: @"",
-                @"screenshotDataUrl": dataUrl
-            };
+                WKSnapshotConfiguration *snapConfig = [[WKSnapshotConfiguration alloc] init];
+                snapConfig.rect = NSMakeRect(0, 0, self.pendingWidth, self.pendingHeight);
+                snapConfig.snapshotWidth = @(self.pendingWidth);
 
-            NSData *jsonData = [NSJSONSerialization dataWithJSONObject:payload options:0 error:nil];
-            NSString *jsonStr = [[NSString alloc] initWithData:jsonData encoding:NSUTF8StringEncoding];
-            NSString *callbackJS = [NSString stringWithFormat:@"if(window.__onNativeWebsiteCaptured) window.__onNativeWebsiteCaptured(%@);", jsonStr];
-            [self.webView evaluateJavaScript:callbackJS completionHandler:nil];
-        }];
+                [self.captureWebView takeSnapshotWithConfiguration:snapConfig completionHandler:^(NSImage *snapshotImage, NSError *snapErr) {
+                    NSString *dataUrl = @"";
+                    if (snapshotImage) {
+                        CGImageRef cgRef = [snapshotImage CGImageForProposedRect:NULL context:nil hints:nil];
+                        if (cgRef) {
+                            NSBitmapImageRep *bmp = [[NSBitmapImageRep alloc] initWithCGImage:cgRef];
+                            NSData *jpgData = [bmp representationUsingType:NSBitmapImageFileTypeJPEG properties:@{NSImageCompressionFactor: @(0.88)}];
+                            if (jpgData) {
+                                NSString *b64 = [jpgData base64EncodedStringWithOptions:0];
+                                dataUrl = [NSString stringWithFormat:@"data:image/jpeg;base64,%@", b64];
+                            }
+                        }
+                    }
+
+                    NSDictionary *payload = @{
+                        @"title": pageTitle,
+                        @"description": pageDesc,
+                        @"hostname": host,
+                        @"fullUrl": self.pendingUrl ?: @"",
+                        @"screenshotDataUrl": dataUrl
+                    };
+
+                    NSData *jsonData = [NSJSONSerialization dataWithJSONObject:payload options:0 error:nil];
+                    NSString *jsonStr = [[NSString alloc] initWithData:jsonData encoding:NSUTF8StringEncoding];
+                    NSString *callbackJS = [NSString stringWithFormat:@"if(window.__onNativeWebsiteCaptured) window.__onNativeWebsiteCaptured(%@);", jsonStr];
+                    [self.webView evaluateJavaScript:callbackJS completionHandler:nil];
+                }];
+            }];
+        });
     }];
 }
 

@@ -20,6 +20,9 @@ const state = {
   simulateCursor: true,
   cameraZoom: true,
   showSocialBadge: false,
+  autoBlockCookies: true,
+  cropTopPx: 0,
+  cropBottomPx: 0,
   maxZoom: 1.40,
   duration: 8,           // seconds
   currentTime: 0,
@@ -337,9 +340,13 @@ function renderFrame(progress) {
   const contentH = winH - headerH - chinH;
 
   const imgW = state.siteImage ? state.siteImage.width : 1440;
-  const imgH = state.siteImage ? state.siteImage.height : 2850;
+  const rawImgH = state.siteImage ? state.siteImage.height : 2850;
+  const cropTopSrc = Math.min(rawImgH * 0.35, state.cropTopPx * (imgW / 1440));
+  const cropBotSrc = Math.min(rawImgH * 0.35, state.cropBottomPx * (imgW / 1440));
+  const effectiveSrcH = Math.max(200, rawImgH - cropTopSrc - cropBotSrc);
+
   const scaleToWindow = contentW / imgW;
-  const scaledTotalH = Math.max(contentH + 100, imgH * scaleToWindow);
+  const scaledTotalH = Math.max(contentH + 100, effectiveSrcH * scaleToWindow);
 
   const choreo = evaluateChoreography(progress, contentW, contentH, scaledTotalH);
 
@@ -429,6 +436,10 @@ function renderFrame(progress) {
   if (state.siteImage) {
     ctx.drawImage(
       state.siteImage,
+      0,
+      cropTopSrc,
+      imgW,
+      effectiveSrcH,
       contentX,
       contentY - choreo.scrollY,
       contentW,
@@ -875,10 +886,10 @@ async function extractWebsite(rawUrl) {
         console.warn('Thum.io screenshot fallback:', e);
       }
 
-      // Secondary fallback: Microlink API if Thum.io didn't load
+      // Secondary fallback: Microlink API with adblock=true (automatically strips cookie & GDPR banners) if Thum.io didn't load
       if (!loadedRealImage) {
         try {
-          const apiUrl = `https://api.microlink.io/?url=${encodeURIComponent(targetUrl)}&screenshot=true&meta=true&viewport.width=${vw}&viewport.height=${captureHeight}&viewport.isMobile=${isMobile}`;
+          const apiUrl = `https://api.microlink.io/?url=${encodeURIComponent(targetUrl)}&screenshot=true&meta=true&adblock=${state.autoBlockCookies}&viewport.width=${vw}&viewport.height=${captureHeight}&viewport.isMobile=${isMobile}`;
           const mlResp = await fetch(apiUrl);
           const mlJson = await mlResp.json();
           if (mlJson && mlJson.status === 'success' && mlJson.data && mlJson.data.screenshot && mlJson.data.screenshot.url) {
@@ -1423,6 +1434,54 @@ document.getElementById('toggleCursor').addEventListener('change', (e) => {
 document.getElementById('toggleZoom').addEventListener('change', (e) => {
   state.cameraZoom = e.target.checked;
 });
+
+// Cookie & Popup Blocker Controls
+const toggleAutoCookieEl = document.getElementById('toggleAutoCookie');
+if (toggleAutoCookieEl) {
+  toggleAutoCookieEl.addEventListener('change', (e) => {
+    state.autoBlockCookies = e.target.checked;
+  });
+}
+
+const cropTopSlider = document.getElementById('cropTopSlider');
+if (cropTopSlider) {
+  cropTopSlider.addEventListener('input', (e) => {
+    state.cropTopPx = Number(e.target.value);
+    document.getElementById('cropTopVal').textContent = `${state.cropTopPx}px`;
+  });
+}
+
+const cropBottomSlider = document.getElementById('cropBottomSlider');
+if (cropBottomSlider) {
+  cropBottomSlider.addEventListener('input', (e) => {
+    state.cropBottomPx = Number(e.target.value);
+    document.getElementById('cropBottomVal').textContent = `${state.cropBottomPx}px`;
+  });
+}
+
+const dismissCookieBtn = document.getElementById('dismissCookieBtn');
+if (dismissCookieBtn) {
+  dismissCookieBtn.addEventListener('click', () => {
+    const statusPill = document.getElementById('extractStatus');
+    // 1. In Native macOS App: trigger deep live DOM cookie dismissal + re-snapshot on the loaded page!
+    if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.dismissCookiesNow) {
+      statusPill.textContent = 'Dismissing Banner...';
+      window.webkit.messageHandlers.dismissCookiesNow.postMessage({});
+      return;
+    }
+    // 2. In Web Browser Mode: automatically trim common bottom/top sticky cookie bar or re-capture
+    if (state.cropBottomPx === 0) {
+      state.cropBottomPx = 110;
+      if (cropBottomSlider) cropBottomSlider.value = 110;
+      const cbVal = document.getElementById('cropBottomVal');
+      if (cbVal) cbVal.textContent = '110px';
+      statusPill.textContent = 'Banner Trimmed ✓';
+    } else {
+      const currentUrl = document.getElementById('urlInput').value.trim();
+      if (currentUrl) extractWebsite(currentUrl);
+    }
+  });
+}
 
 document.getElementById('zoomSlider').addEventListener('input', (e) => {
   state.maxZoom = Number(e.target.value) / 100;
