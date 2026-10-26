@@ -1,0 +1,30 @@
+name: Build Windows & macOS Desktop App
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build Windows Portable .exe & Installer
+        run: npm run build:win
+
+      - name: Upload Windows .exe Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ChurchReel-Studio-Windows-EXE
+          path: dist/*.exe

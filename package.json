@@ -1,10 +1,35 @@
 {
-  "name": "site-reel-studio",
+  "name": "churchreel-studio",
   "version": "1.0.0",
-  "description": "Automated Website-to-Screen-Video Studio with smooth scroll, browser frames, smart cursor zoom, and social aspect ratios",
-  "main": "server.js",
+  "description": "ChurchReel Studio — Catholic Website & Parish Screen Video Creator (MP4 & GIF)",
+  "main": "electron-main.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "desktop": "electron .",
+    "build:win": "electron-builder --win --x64",
+    "build:mac": "electron-builder --mac"
+  },
+  "build": {
+    "appId": "org.churchreel.studio",
+    "productName": "ChurchReel Studio",
+    "files": [
+      "electron-main.js",
+      "public/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        "portable",
+        "nsis"
+      ]
+    },
+    "portable": {
+      "artifactName": "ChurchReel-Studio-Portable.exe"
+    }
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.1.8"
   },
   "license": "MIT"
 }

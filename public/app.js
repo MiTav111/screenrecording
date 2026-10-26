@@ -724,7 +724,61 @@ function buildSynthesizedSiteCanvas(meta, isMobile) {
   return off;
 }
 
-// Fetch real full-page screenshot & metadata from any URL (works both via local server AND directly in browser via Microlink API!)
+// Native macOS callback when native WKWebView finishes capturing the live webpage
+window.__onNativeWebsiteCaptured = async function (payload) {
+  const loadingOverlay = document.getElementById('loadingOverlay');
+  const extractBtn = document.getElementById('extractBtn');
+  const statusPill = document.getElementById('extractStatus');
+
+  try {
+    if (payload && payload.screenshotDataUrl) {
+      const img = new Image();
+      await new Promise((res, rej) => {
+        img.onload = res;
+        img.onerror = rej;
+        img.src = payload.screenshotDataUrl;
+      });
+      state.siteImage = img;
+      const isMobile = state.frame === 'iphone';
+      const vw = isMobile ? 390 : 1440;
+      const vh = isMobile ? 844 : 900;
+      const captureHeight = img.height || 2850;
+      const host = payload.hostname || 'website.org';
+
+      state.metadata = {
+        title: payload.title || host,
+        description: payload.description || `Live interactive scroll showcase of ${host}`,
+        siteName: payload.title || host,
+        hostname: host,
+        fullUrl: payload.fullUrl || `https://${host}`,
+        viewportWidth: vw,
+        viewportHeight: vh,
+        captureHeight,
+        hotspots: [
+          { centerX: Math.round(vw * 0.48), centerY: Math.round(vh * 0.50), label: (payload.title || 'Hero Highlight').slice(0, 24), zoomScale: 1.42 },
+          { centerX: Math.round(vw * 0.34), centerY: Math.round(captureHeight * 0.40), label: 'Featured Section', zoomScale: 1.38 },
+          { centerX: Math.round(vw * 0.66), centerY: Math.round(captureHeight * 0.65), label: 'Content Spotlight', zoomScale: 1.42 },
+          { centerX: Math.round(vw * 0.50), centerY: Math.round(captureHeight * 0.85), label: 'Footer & Links', zoomScale: 1.38 }
+        ]
+      };
+
+      state.currentTime = 0;
+      state.manualScrollRatio = 0;
+      document.getElementById('metaTitle').textContent = state.metadata.title;
+      document.getElementById('metaUrl').textContent = state.metadata.hostname;
+      document.getElementById('metaDesc').textContent = state.metadata.description;
+      statusPill.textContent = 'Live Page Loaded ✓';
+      renderHotspotsUI();
+    }
+  } catch (e) {
+    console.error('Native capture decode error:', e);
+  } finally {
+    loadingOverlay.classList.add('hidden');
+    extractBtn.disabled = false;
+  }
+};
+
+// Fetch real full-page screenshot & metadata from any URL (works in Native macOS App, local server, AND browser!)
 async function extractWebsite(rawUrl) {
   const loadingOverlay = document.getElementById('loadingOverlay');
   const loadingText = document.getElementById('loadingText');
@@ -740,7 +794,7 @@ async function extractWebsite(rawUrl) {
   }
 
   loadingOverlay.classList.remove('hidden');
-  loadingText.textContent = `Loading full webpage & scrolling view for ${targetUrl}...`;
+  loadingText.textContent = `Loading live webpage & scrolling view for ${targetUrl}...`;
   extractBtn.disabled = true;
   statusPill.textContent = 'Loading Page...';
 
@@ -748,6 +802,17 @@ async function extractWebsite(rawUrl) {
   const vw = isMobile ? 390 : 1440;
   const vh = isMobile ? 844 : 900;
   const captureHeight = isMobile ? 2600 : 2850;
+
+  // 0. If running inside the Native macOS App (WKWebView) and not Demo, use the native WebKit page loader & snapshot engine!
+  if (!isDemo && window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.captureSite) {
+    window.webkit.messageHandlers.captureSite.postMessage({
+      url: targetUrl,
+      width: vw,
+      height: captureHeight,
+      isMobile: isMobile
+    });
+    return;
+  }
 
   try {
     let loadedRealImage = null;
@@ -1002,7 +1067,28 @@ function encodeAnimatedGIF(frames, width, height, delayCs) {
   return new Uint8Array(bytes);
 }
 
-// Fast Animated GIF Export
+// Helper to save exported Blob in both standard Browser AND Native macOS Desktop App
+function triggerExportDownload(blob, filename) {
+  if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.saveFile) {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const base64Data = reader.result.split(',')[1] || '';
+      window.webkit.messageHandlers.saveFile.postMessage({
+        filename,
+        base64: base64Data
+      });
+    };
+    reader.readAsDataURL(blob);
+    return;
+  }
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
 async function exportAnimatedGIF() {
   if (state.isRecording) return;
   const gifBtn = document.getElementById('exportGifBtn');
@@ -1053,17 +1139,12 @@ async function exportAnimatedGIF() {
 
     const gifBytes = encodeAnimatedGIF(indexedFrames, gifW, gifH, Math.round(100 / fps));
     const blob = new Blob([gifBytes], { type: 'image/gif' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
     const cleanHost = (state.metadata.hostname || 'churchreel').replace(/[^a-z0-9]/gi, '-');
-    a.href = url;
-    a.download = `churchreel-${cleanHost}-${state.aspect.replace(':', 'x')}.gif`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
+    const filename = `churchreel-${cleanHost}-${state.aspect.replace(':', 'x')}.gif`;
+    triggerExportDownload(blob, filename);
 
-    document.getElementById('toastTitle').textContent = 'Animated GIF Downloaded!';
-    document.getElementById('toastSub').textContent = `Saved ${a.download} to your Downloads folder.`;
+    document.getElementById('toastTitle').textContent = 'Animated GIF Ready!';
+    document.getElementById('toastSub').textContent = `Saved ${filename} to your Downloads / chosen folder.`;
     document.getElementById('downloadToast').classList.remove('hidden');
   } finally {
     state.isRecording = false;
@@ -1116,19 +1197,14 @@ function startRecordingMp4() {
 
   mediaRecorder.onstop = () => {
     const blob = new Blob(recordedChunks, { type: 'video/mp4' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
     const cleanHost = (state.metadata.hostname || 'churchreel').replace(/[^a-z0-9]/gi, '-');
-    a.href = url;
-    a.download = `churchreel-${cleanHost}-${state.aspect.replace(':', 'x')}.mp4`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
+    const filename = `churchreel-${cleanHost}-${state.aspect.replace(':', 'x')}.mp4`;
+    triggerExportDownload(blob, filename);
 
     mp4Btn.classList.remove('recording');
     mp4Label.textContent = 'Export MP4';
-    document.getElementById('toastTitle').textContent = 'MP4 Video Downloaded!';
-    document.getElementById('toastSub').textContent = `Saved ${a.download} to your Downloads folder.`;
+    document.getElementById('toastTitle').textContent = 'MP4 Video Ready!';
+    document.getElementById('toastSub').textContent = `Saved ${filename} to your Downloads / chosen folder.`;
     document.getElementById('downloadToast').classList.remove('hidden');
   };
 
@@ -1218,13 +1294,34 @@ document.getElementById('extractForm').addEventListener('submit', (e) => {
   if (url) extractWebsite(url);
 });
 
-document.querySelectorAll('.preset-chip').forEach((chip) => {
+document.querySelectorAll('.preset-chip[data-url]').forEach((chip) => {
   chip.addEventListener('click', () => {
     const url = chip.getAttribute('data-url');
     document.getElementById('urlInput').value = url;
     extractWebsite(url);
   });
 });
+
+// One-Click Paste button (reads clipboard in browser OR via native macOS bridge)
+const pasteBtn = document.getElementById('pasteUrlBtn');
+if (pasteBtn) {
+  pasteBtn.addEventListener('click', async () => {
+    if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.pasteClipboard) {
+      window.webkit.messageHandlers.pasteClipboard.postMessage({});
+      return;
+    }
+    try {
+      const text = await navigator.clipboard.readText();
+      if (text) {
+        const input = document.getElementById('urlInput');
+        input.value = text.trim();
+        input.focus();
+      }
+    } catch (_) {
+      document.getElementById('urlInput').focus();
+    }
+  });
+}
 
 // Direct Mouse Wheel / Trackpad Scrolling on the Canvas!
 canvas.addEventListener('wheel', (e) => {

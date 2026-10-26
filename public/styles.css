@@ -24,7 +24,11 @@ body {
   color: var(--text-main);
   height: 100vh;
   overflow: hidden;
-  user-select: none;
+}
+
+input, textarea {
+  user-select: text;
+  -webkit-user-select: text;
 }
 
 .app-shell {

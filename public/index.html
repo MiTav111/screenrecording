@@ -24,18 +24,19 @@
         </div>
       </div>
 
-      <!-- URL Input Bar (Single Demo Site Preset) -->
+      <!-- URL Input Bar (Single Demo Site Preset + One-Click Paste) -->
       <form id="extractForm" class="url-bar">
         <div class="url-input-wrap">
           <span class="url-icon">⛪</span>
           <input
             type="text"
             id="urlInput"
-            placeholder="Enter any website URL to load & scroll (e.g. vaticannews.va, ewtn.com)"
+            placeholder="Paste or type any website URL (e.g. vaticannews.va, ewtn.com, wikipedia.org)"
             value="https://www.vaticannews.va/en.html"
             autocomplete="off"
           />
           <div class="quick-presets">
+            <button type="button" id="pasteUrlBtn" class="preset-chip" title="Paste URL from Clipboard">📋 Paste</button>
             <button type="button" class="preset-chip" data-url="demo">Demo Site</button>
           </div>
         </div>
