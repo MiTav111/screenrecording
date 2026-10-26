@@ -24,22 +24,19 @@
         </div>
       </div>
 
-      <!-- URL Input Bar -->
+      <!-- URL Input Bar (Single Demo Site Preset) -->
       <form id="extractForm" class="url-bar">
         <div class="url-input-wrap">
           <span class="url-icon">⛪</span>
           <input
             type="text"
             id="urlInput"
-            placeholder="Enter any website URL to load & scroll (e.g. vaticannews.va, ewtn.com, wikipedia.org)"
+            placeholder="Enter any website URL to load & scroll (e.g. vaticannews.va, ewtn.com)"
             value="https://www.vaticannews.va/en.html"
             autocomplete="off"
           />
           <div class="quick-presets">
-            <button type="button" class="preset-chip" data-url="https://www.vaticannews.va/en.html">Vatican News</button>
-            <button type="button" class="preset-chip" data-url="https://www.usccb.org">USCCB</button>
-            <button type="button" class="preset-chip" data-url="https://en.wikipedia.org/wiki/Catholic_Church">Catholic Wiki</button>
-            <button type="button" class="preset-chip" data-url="demo">Parish Demo</button>
+            <button type="button" class="preset-chip" data-url="demo">Demo Site</button>
           </div>
         </div>
         <button type="submit" id="extractBtn" class="btn-extract">
@@ -64,7 +61,7 @@
     <div class="workspace">
       <!-- Left Sidebar Controls -->
       <aside class="sidebar">
-        <!-- Extracted Site Info Card -->
+        <!-- Extracted Site Info Card + Active Device Display -->
         <div class="control-group extracted-card" id="siteMetaCard">
           <div class="group-header">
             <span class="group-title">LOADED WEBPAGE</span>
@@ -72,6 +69,10 @@
           </div>
           <div class="meta-title" id="metaTitle">Vatican News — Official Catholic Portal</div>
           <div class="meta-url" id="metaUrl">vaticannews.va</div>
+          <div class="device-used-row">
+            <span class="device-used-label">Active Device:</span>
+            <span class="device-used-badge" id="activeDeviceReadout">💻 MacBook Pro 16" (macOS Light • 1440×900)</span>
+          </div>
           <div class="meta-desc" id="metaDesc">Scroll manually on the canvas with your mouse wheel or let Auto-Scroll glide top-to-bottom.</div>
         </div>
 
@@ -99,26 +100,52 @@
           </div>
         </div>
 
-        <!-- 2. Browser & Device Frame + Padding + Backdrop -->
+        <!-- 2. Browser & Device Frame + Expanded Backgrounds -->
         <div class="control-group">
           <div class="group-header">
-            <span class="group-title">2. DEVICE FRAME & BACKDROP</span>
+            <span class="group-title">2. DEVICE MODEL & BACKDROP</span>
           </div>
           <div class="segmented-grid cols-2" id="frameGroup">
-            <button type="button" class="seg-btn active" data-frame="macos-light">macOS Light</button>
-            <button type="button" class="seg-btn" data-frame="macos-dark">macOS Dark</button>
-            <button type="button" class="seg-btn" data-frame="iphone">iPhone 16 Pro</button>
-            <button type="button" class="seg-btn" data-frame="glass">Minimal Glass</button>
+            <button type="button" class="seg-btn active" data-frame="macos-light" data-device-name='💻 MacBook Pro 16" (macOS Light • 1440×900)'>
+              <span>💻 MacBook Light</span>
+              <small>Desktop 1440×900</small>
+            </button>
+            <button type="button" class="seg-btn" data-frame="macos-dark" data-device-name='💻 MacBook Pro 16" (macOS Dark • 1440×900)'>
+              <span>💻 MacBook Dark</span>
+              <small>Desktop 1440×900</small>
+            </button>
+            <button type="button" class="seg-btn" data-frame="ipad" data-device-name='📱 iPad Air 11" (Tablet • 1024×1366)'>
+              <span>📱 iPad Air Tablet</span>
+              <small>Tablet 1024×1366</small>
+            </button>
+            <button type="button" class="seg-btn" data-frame="iphone" data-device-name='📱 iPhone 16 Pro (Mobile • 390×844)'>
+              <span>📱 iPhone 16 Pro</span>
+              <small>Mobile 390×844</small>
+            </button>
+            <button type="button" class="seg-btn" data-frame="imac" data-device-name='🖥️ iMac 24" Studio Display (1600×1000)'>
+              <span>🖥️ iMac 24" Studio</span>
+              <small>Widescreen 1600×1000</small>
+            </button>
+            <button type="button" class="seg-btn" data-frame="glass" data-device-name='✨ Frameless Glass Display (1440×900)'>
+              <span>✨ Minimal Glass</span>
+              <small>Borderless 1440×900</small>
+            </button>
           </div>
 
-          <div class="sub-label">Backdrop Theme</div>
-          <div class="swatch-row" id="bgSwatches">
-            <button type="button" class="swatch active" data-bg="vatican" style="background: linear-gradient(135deg, #fef3c7, #f59e0b, #fffbeb);" title="Vatican Gold & Ivory"></button>
-            <button type="button" class="swatch" data-bg="alabaster" style="background: linear-gradient(135deg, #f8fafc, #e2e8f0, #cbd5e1);" title="Cathedral Alabaster"></button>
-            <button type="button" class="swatch" data-bg="marian" style="background: linear-gradient(135deg, #dbeafe, #60a5fa, #1d4ed8);" title="Marian Sky Blue"></button>
-            <button type="button" class="swatch" data-bg="rose" style="background: linear-gradient(135deg, #fce7f3, #f472b6, #9333ea);" title="Gaudete Rose"></button>
-            <button type="button" class="swatch" data-bg="olive" style="background: linear-gradient(135deg, #dcfce7, #34d399, #065f46);" title="Ordinary Time Meadow"></button>
-            <button type="button" class="swatch" data-bg="aurora" style="background: linear-gradient(135deg, #4f46e5, #9333ea, #ec4899);" title="Royal Purple"></button>
+          <div class="sub-label">Backdrop Gallery (12 Presets): <strong id="bgNameLabel">Vatican Gold & Ivory</strong></div>
+          <div class="swatch-grid" id="bgSwatches">
+            <button type="button" class="swatch active" data-bg="vatican" data-bg-label="Vatican Gold & Ivory" style="background: linear-gradient(135deg, #fef3c7, #f59e0b, #fffbeb);" title="Vatican Gold & Ivory"></button>
+            <button type="button" class="swatch" data-bg="alabaster" data-bg-label="Cathedral Alabaster" style="background: linear-gradient(135deg, #f8fafc, #e2e8f0, #cbd5e1);" title="Cathedral Alabaster"></button>
+            <button type="button" class="swatch" data-bg="marian" data-bg-label="Marian Sky Blue" style="background: linear-gradient(135deg, #dbeafe, #60a5fa, #1d4ed8);" title="Marian Sky Blue"></button>
+            <button type="button" class="swatch" data-bg="rose" data-bg-label="Gaudete Rose" style="background: linear-gradient(135deg, #fce7f3, #f472b6, #9333ea);" title="Gaudete Rose"></button>
+            <button type="button" class="swatch" data-bg="olive" data-bg-label="Ordinary Time Meadow" style="background: linear-gradient(135deg, #dcfce7, #34d399, #065f46);" title="Ordinary Time Meadow"></button>
+            <button type="button" class="swatch" data-bg="lenten" data-bg-label="Lenten Royal Violet" style="background: linear-gradient(135deg, #ede9fe, #8b5cf6, #4c1d95);" title="Lenten Royal Violet"></button>
+            <button type="button" class="swatch" data-bg="pentecost" data-bg-label="Pentecost Crimson & Amber" style="background: linear-gradient(135deg, #fee2e2, #ef4444, #b45309);" title="Pentecost Crimson & Amber"></button>
+            <button type="button" class="swatch" data-bg="parchment" data-bg-label="Sacred Parchment & Sandstone" style="background: linear-gradient(135deg, #fefce8, #e7e5e4, #a8a29e);" title="Sacred Parchment & Sandstone"></button>
+            <button type="button" class="swatch" data-bg="sunrise" data-bg-label="Lauds Golden Sunrise" style="background: linear-gradient(135deg, #ffedd5, #fb923c, #f43f5e);" title="Lauds Golden Sunrise"></button>
+            <button type="button" class="swatch" data-bg="vespers" data-bg-label="Vespers Twilight" style="background: linear-gradient(135deg, #e0e7ff, #6366f1, #1e1b4b);" title="Vespers Twilight"></button>
+            <button type="button" class="swatch" data-bg="stainedglass" data-bg-label="Stained Glass Prism" style="background: linear-gradient(135deg, #38bdf8, #a855f7, #f59e0b);" title="Stained Glass Prism"></button>
+            <button type="button" class="swatch" data-bg="monastic" data-bg-label="Monastic Warm Slate" style="background: linear-gradient(135deg, #cbd5e1, #64748b, #1e293b);" title="Monastic Warm Slate"></button>
           </div>
 
           <div class="slider-row">
@@ -170,8 +197,8 @@
 
           <label class="toggle-row">
             <span class="toggle-info">
-              <strong>Bottom Website Caption Pill</strong>
-              <small>Floating church/website title badge</small>
+              <strong>Bottom Website & Device Pill</strong>
+              <small>Shows website title & active device in video</small>
             </span>
             <input type="checkbox" id="toggleBadge" checked />
           </label>
@@ -205,12 +232,12 @@
       <!-- Center Stage: Live 60FPS Canvas & Timeline -->
       <main class="stage-area">
         <div class="stage-banner">
-          <span>💡 <strong>Tip:</strong> Paste any URL above and click <strong>Load & Scroll Page</strong>. You can also scroll directly on the preview using your mouse wheel/trackpad!</span>
+          <span>💡 <strong>Active Device:</strong> <span id="stageDevicePill" class="stage-device-pill">💻 MacBook Pro 16" (macOS Light • 1440×900)</span> — Paste any URL above or use your mouse wheel to scroll!</span>
         </div>
 
         <div class="canvas-viewport">
           <div class="canvas-container" id="canvasContainer">
-            <canvas id="stageCanvas" width="1920" height="1080"></canvas>
+            <canvas id="stageCanvas" width="1280" height="720"></canvas>
             <div id="loadingOverlay" class="loading-overlay hidden">
               <div class="spinner"></div>
               <div class="loading-text" id="loadingText">Capturing real full-length webpage screenshot...</div>

@@ -311,6 +311,40 @@ body {
   margin-bottom: 6px;
 }
 
+.device-used-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+
+.device-used-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #64748b;
+}
+
+.device-used-badge {
+  font-size: 11px;
+  font-weight: 700;
+  color: #92400e;
+  background: #fef3c7;
+  border: 1px solid #fde68a;
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+
+.stage-device-pill {
+  font-weight: 700;
+  color: #92400e;
+  background: #fef3c7;
+  border: 1px solid #f59e0b;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 11.5px;
+}
+
 .meta-desc {
   font-size: 12px;
   color: var(--text-muted);
@@ -379,7 +413,7 @@ body {
 .ratio-9-16 { width: 11px; height: 18px; }
 .ratio-1-1 { width: 14px; height: 14px; }
 
-/* Wallpaper Swatches */
+/* Wallpaper Swatches Grid (12 Presets) */
 .sub-label {
   font-size: 11.5px;
   color: #475569;
@@ -387,17 +421,21 @@ body {
   font-weight: 600;
 }
 
-.swatch-row {
-  display: flex;
+.sub-label strong {
+  color: #92400e;
+}
+
+.swatch-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
   gap: 8px;
   margin-bottom: 12px;
 }
 
 .swatch {
-  flex: 1;
   height: 30px;
   border-radius: 8px;
-  border: 2px solid rgba(15, 23, 42, 0.12);
+  border: 2px solid rgba(15, 23, 42, 0.14);
   cursor: pointer;
   transition: transform 0.15s, border-color 0.15s;
 }

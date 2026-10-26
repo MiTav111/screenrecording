@@ -10,7 +10,8 @@ const ctx = canvas.getContext('2d');
 
 const state = {
   aspect: '16:9',        // '16:9' | '9:16' | '1:1'
-  frame: 'macos-light',  // 'macos-light' | 'macos-dark' | 'iphone' | 'glass'
+  frame: 'macos-light',  // 'macos-light' | 'macos-dark' | 'ipad' | 'iphone' | 'imac' | 'glass'
+  deviceName: '💻 MacBook Pro 16" (macOS Light • 1440×900)',
   bgTheme: 'vatican',
   padding: 64,
   shadowIntensity: 0.55,
@@ -38,13 +39,28 @@ const state = {
   }
 };
 
+const DEVICE_PROFILES = {
+  'macos-light': { label: 'MacBook Pro 16"', short: 'MacBook Pro 16" (1440×900)', vw: 1440, vh: 900, aspect: 16 / 10, isMobile: false },
+  'macos-dark':  { label: 'MacBook Pro 16" Dark', short: 'MacBook Pro 16" (1440×900)', vw: 1440, vh: 900, aspect: 16 / 10, isMobile: false },
+  'ipad':        { label: 'iPad Air 11"', short: 'iPad Air Tablet (1024×1366)', vw: 1024, vh: 1366, aspect: 3 / 4, isMobile: false },
+  'iphone':      { label: 'iPhone 16 Pro', short: 'iPhone 16 Pro (390×844)', vw: 390, vh: 844, aspect: 9 / 19.2, isMobile: true },
+  'imac':        { label: 'iMac 24" Studio', short: 'iMac 24" Studio (1600×1000)', vw: 1600, vh: 1000, aspect: 16 / 10, isMobile: false },
+  'glass':       { label: 'Frameless Glass Display', short: 'Frameless Glass (1440×900)', vw: 1440, vh: 900, aspect: 16 / 10, isMobile: false }
+};
+
 const BG_THEMES = {
-  vatican:   ['#fffbeb', '#fde68a', '#f59e0b', '#fef3c7'],
-  alabaster: ['#f8fafc', '#e2e8f0', '#cbd5e1', '#f1f5f9'],
-  marian:    ['#eff6ff', '#93c5fd', '#2563eb', '#dbeafe'],
-  rose:      ['#fdf2f8', '#f9a8d4', '#c084fc', '#fce7f3'],
-  olive:     ['#f0fdf4', '#86efac', '#059669', '#dcfce7'],
-  aurora:    ['#312e81', '#6d28d9', '#db2777', '#0f172a']
+  vatican:      ['#fffbeb', '#fde68a', '#f59e0b', '#fef3c7'],
+  alabaster:    ['#f8fafc', '#e2e8f0', '#cbd5e1', '#f1f5f9'],
+  marian:       ['#eff6ff', '#93c5fd', '#2563eb', '#dbeafe'],
+  rose:         ['#fdf2f8', '#f9a8d4', '#c084fc', '#fce7f3'],
+  olive:        ['#f0fdf4', '#86efac', '#059669', '#dcfce7'],
+  lenten:       ['#f5f3ff', '#c4b5fd', '#7c3aed', '#ede9fe'],
+  pentecost:    ['#fef2f2', '#fca5a5', '#ea580c', '#ffedd5'],
+  parchment:    ['#fefce8', '#e7e5e4', '#d6d3d1', '#f5f5f4'],
+  sunrise:      ['#fff7ed', '#fdba74', '#f43f5e', '#ffedd5'],
+  vespers:      ['#e0e7ff', '#818cf8', '#312e81', '#c7d2fe'],
+  stainedglass: ['#e0f2fe', '#c084fc', '#fbbf24', '#fce7f3'],
+  monastic:     ['#f1f5f9', '#94a3b8', '#334155', '#e2e8f0']
 };
 
 const ASPECT_DIMENSIONS = {
@@ -297,13 +313,16 @@ function renderFrame(progress) {
 
   drawWallpaper(ctx, W, H, progress);
 
+  const devProfile = DEVICE_PROFILES[state.frame] || DEVICE_PROFILES['macos-light'];
   const isIphoneFrame = state.frame === 'iphone';
+  const isIpadFrame = state.frame === 'ipad';
+  const isImacFrame = state.frame === 'imac';
   const pad = state.padding * (W / 1280);
 
   let availW = W - pad * 2;
   let availH = H - pad * 2 - (state.showSocialBadge ? 48 : 0);
 
-  const siteAspect = isIphoneFrame ? 9 / 19.2 : 16 / 10;
+  const siteAspect = devProfile.aspect;
   let winW = availW;
   let winH = winW / siteAspect;
 
@@ -312,9 +331,10 @@ function renderFrame(progress) {
     winW = winH * siteAspect;
   }
 
-  const headerH = isIphoneFrame ? 0 : state.frame === 'glass' ? 0 : 38;
+  const headerH = isIphoneFrame || isIpadFrame || state.frame === 'glass' ? 0 : 38;
+  const chinH = isImacFrame ? 28 : 0;
   const contentW = winW;
-  const contentH = winH - headerH;
+  const contentH = winH - headerH - chinH;
 
   const imgW = state.siteImage ? state.siteImage.width : 1440;
   const imgH = state.siteImage ? state.siteImage.height : 2850;
@@ -342,7 +362,7 @@ function renderFrame(progress) {
 
   const winX = -winW / 2;
   const winY = -winH / 2;
-  const borderRadius = isIphoneFrame ? 38 : 16;
+  const borderRadius = isIphoneFrame ? 38 : isIpadFrame ? 26 : 16;
 
   // Window elevation shadow
   ctx.save();
@@ -358,9 +378,9 @@ function renderFrame(progress) {
   roundRectPath(ctx, winX, winY, winW, winH, borderRadius);
   ctx.clip();
 
-  // Browser Header Bar
+  // Browser Header Bar (Shows URL + Active Device Label on the right!)
   if (headerH > 0) {
-    const isLight = state.frame === 'macos-light';
+    const isLight = state.frame !== 'macos-dark';
     ctx.fillStyle = isLight ? '#f8fafc' : '#1e293b';
     ctx.fillRect(winX, winY, winW, headerH);
 
@@ -373,7 +393,7 @@ function renderFrame(progress) {
       ctx.fill();
     });
 
-    const pillW = Math.min(winW * 0.52, 380);
+    const pillW = Math.min(winW * 0.44, 340);
     const pillH = 22;
     const pillX = winX + (winW - pillW) / 2;
     const pillY = winY + (headerH - pillH) / 2;
@@ -387,6 +407,12 @@ function renderFrame(progress) {
     ctx.textBaseline = 'middle';
     const domainLabel = `🔒 ${state.metadata.hostname || 'vaticannews.va'}`;
     ctx.fillText(domainLabel, winX + winW / 2, dotY);
+
+    // Device tag on right side of header bar
+    ctx.textAlign = 'right';
+    ctx.font = '600 10.5px -apple-system, BlinkMacSystemFont, sans-serif';
+    ctx.fillStyle = isLight ? '#64748b' : '#94a3b8';
+    ctx.fillText(devProfile.short, winX + winW - 14, dotY);
     ctx.textAlign = 'left';
     ctx.textBaseline = 'alphabetic';
   }
@@ -436,6 +462,19 @@ function renderFrame(progress) {
 
   ctx.restore();
 
+  // iMac 24" Studio Chin Bar
+  if (isImacFrame) {
+    ctx.fillStyle = '#e2e8f0';
+    ctx.fillRect(winX, winY + winH - chinH, winW, chinH);
+    ctx.fillStyle = '#64748b';
+    ctx.font = '700 11px -apple-system, BlinkMacSystemFont, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('✝ iMac 24" Studio Display', winX + winW / 2, winY + winH - chinH / 2);
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'alphabetic';
+  }
+
   if (isIphoneFrame) {
     const islandW = winW * 0.3;
     const islandH = 20;
@@ -444,31 +483,42 @@ function renderFrame(progress) {
     ctx.fill();
   }
 
+  if (isIpadFrame) {
+    // iPad top camera dot & home indicator bar
+    ctx.beginPath();
+    ctx.arc(winX + winW / 2, winY + 8, 3.5, 0, Math.PI * 2);
+    ctx.fillStyle = '#1e293b';
+    ctx.fill();
+    roundRectPath(ctx, winX + winW * 0.35, winY + winH - 10, winW * 0.3, 4, 2);
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.35)';
+    ctx.fill();
+  }
+
   ctx.restore();
 
   roundRectPath(ctx, winX, winY, winW, winH, borderRadius);
-  ctx.lineWidth = isIphoneFrame ? 6 : 2;
-  ctx.strokeStyle = 'rgba(15, 23, 42, 0.14)';
+  ctx.lineWidth = isIphoneFrame || isIpadFrame ? 7 : 2;
+  ctx.strokeStyle = isIphoneFrame || isIpadFrame ? '#1e293b' : 'rgba(15, 23, 42, 0.14)';
   ctx.stroke();
 
   ctx.restore();
 
-  // Floating Caption Badge at bottom
+  // Floating Caption Badge at bottom (Displays Website + Device Used!)
   if (state.showSocialBadge) {
     ctx.save();
-    const badgeText = `✝ ${state.metadata.title.slice(0, 42)}  •  ${state.metadata.hostname}`;
-    ctx.font = '600 13.5px -apple-system, BlinkMacSystemFont, sans-serif';
+    const badgeText = `✝ ${state.metadata.title.slice(0, 34)}  •  ${state.metadata.hostname}  •  ${devProfile.short}`;
+    ctx.font = '600 13px -apple-system, BlinkMacSystemFont, sans-serif';
     const textMetrics = ctx.measureText(badgeText);
-    const bW = Math.min(W - 50, textMetrics.width + 38);
+    const bW = Math.min(W - 40, textMetrics.width + 36);
     const bH = 34;
     const bX = (W - bW) / 2;
     const bY = H - bH - 16;
 
     roundRectPath(ctx, bX, bY, bW, bH, 17);
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.92)';
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.94)';
     ctx.fill();
     ctx.lineWidth = 1.2;
-    ctx.strokeStyle = 'rgba(217, 119, 6, 0.45)';
+    ctx.strokeStyle = 'rgba(217, 119, 6, 0.5)';
     ctx.stroke();
 
     ctx.fillStyle = '#1e293b';
@@ -1219,18 +1269,29 @@ document.querySelectorAll('#frameGroup .seg-btn').forEach((btn) => {
     btn.classList.add('active');
     const prevFrame = state.frame;
     state.frame = btn.getAttribute('data-frame');
+    state.deviceName = btn.getAttribute('data-device-name') || state.frame;
+
+    const devReadout = document.getElementById('activeDeviceReadout');
+    const stagePill = document.getElementById('stageDevicePill');
+    if (devReadout) devReadout.textContent = state.deviceName;
+    if (stagePill) stagePill.textContent = state.deviceName;
+
     if ((prevFrame === 'iphone') !== (state.frame === 'iphone')) {
       extractWebsite(document.getElementById('urlInput').value.trim() || 'demo');
     }
   });
 });
 
-// Wallpaper Swatches
+// Wallpaper Swatches (12 Presets)
 document.querySelectorAll('#bgSwatches .swatch').forEach((sw) => {
   sw.addEventListener('click', () => {
     document.querySelectorAll('#bgSwatches .swatch').forEach((s) => s.classList.remove('active'));
     sw.classList.add('active');
     state.bgTheme = sw.getAttribute('data-bg');
+    const bgLabel = document.getElementById('bgNameLabel');
+    if (bgLabel && sw.getAttribute('data-bg-label')) {
+      bgLabel.textContent = sw.getAttribute('data-bg-label');
+    }
   });
 });
 
