@@ -19,7 +19,7 @@ const state = {
   manualScrollRatio: 0,  // 0..1 when user scrolls manually
   simulateCursor: true,
   cameraZoom: true,
-  showSocialBadge: true,
+  showSocialBadge: false,
   maxZoom: 1.40,
   duration: 8,           // seconds
   currentTime: 0,
@@ -320,7 +320,7 @@ function renderFrame(progress) {
   const pad = state.padding * (W / 1280);
 
   let availW = W - pad * 2;
-  let availH = H - pad * 2 - (state.showSocialBadge ? 48 : 0);
+  let availH = H - pad * 2;
 
   const siteAspect = devProfile.aspect;
   let winW = availW;
@@ -346,7 +346,7 @@ function renderFrame(progress) {
   ctx.save();
 
   const stageCenterX = W / 2;
-  const stageCenterY = (H - (state.showSocialBadge ? 36 : 0)) / 2;
+  const stageCenterY = H / 2;
 
   ctx.translate(stageCenterX, stageCenterY);
 
@@ -502,31 +502,6 @@ function renderFrame(progress) {
   ctx.stroke();
 
   ctx.restore();
-
-  // Floating Caption Badge at bottom (Displays Website + Device Used!)
-  if (state.showSocialBadge) {
-    ctx.save();
-    const badgeText = `✝ ${state.metadata.title.slice(0, 34)}  •  ${state.metadata.hostname}  •  ${devProfile.short}`;
-    ctx.font = '600 13px -apple-system, BlinkMacSystemFont, sans-serif';
-    const textMetrics = ctx.measureText(badgeText);
-    const bW = Math.min(W - 40, textMetrics.width + 36);
-    const bH = 34;
-    const bX = (W - bW) / 2;
-    const bY = H - bH - 16;
-
-    roundRectPath(ctx, bX, bY, bW, bH, 17);
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.94)';
-    ctx.fill();
-    ctx.lineWidth = 1.2;
-    ctx.strokeStyle = 'rgba(217, 119, 6, 0.5)';
-    ctx.stroke();
-
-    ctx.fillStyle = '#1e293b';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(badgeText, W / 2, bY + bH / 2 + 1);
-    ctx.restore();
-  }
 }
 
 // High-DPI Catholic / Parish Webpage Synthesizer Fallback (when offline or demo)
@@ -788,8 +763,7 @@ async function extractWebsite(rawUrl) {
   let targetUrl = (rawUrl || '').trim();
   if (!targetUrl) return;
 
-  const isDemo = targetUrl.toLowerCase() === 'demo';
-  if (!isDemo && !/^https?:\/\//i.test(targetUrl)) {
+  if (!/^https?:\/\//i.test(targetUrl)) {
     targetUrl = 'https://' + targetUrl;
   }
 
@@ -803,8 +777,8 @@ async function extractWebsite(rawUrl) {
   const vh = isMobile ? 844 : 900;
   const captureHeight = isMobile ? 2600 : 2850;
 
-  // 0. If running inside the Native macOS App (WKWebView) and not Demo, use the native WebKit page loader & snapshot engine!
-  if (!isDemo && window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.captureSite) {
+  // 0. If running inside the Native macOS App (WKWebView), use the native WebKit page loader & snapshot engine!
+  if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.captureSite) {
     window.webkit.messageHandlers.captureSite.postMessage({
       url: targetUrl,
       width: vw,
@@ -820,7 +794,7 @@ async function extractWebsite(rawUrl) {
 
     // 1. If running on local Node server (http://localhost:3456), try backend first
     const isLocalServer = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-    if (!isDemo && isLocalServer) {
+    if (isLocalServer) {
       try {
         const resp = await fetch('/api/extract', {
           method: 'POST',
@@ -845,8 +819,8 @@ async function extractWebsite(rawUrl) {
     }
 
     // 2. Live Web Browser Mode (GitHub Pages / Static Hosting):
-    // Use Thum.io Direct Tall PNG Stream (CORS-enabled, no rate-limit wall) + Microlink fallback
-    if (!isDemo && !loadedRealImage) {
+    // Use Thum.io Direct Tall PNG Stream (CORS-enabled) + Microlink fallback
+    if (!loadedRealImage) {
       const parsedHost = (() => {
         try { return new URL(targetUrl).hostname.replace(/^www\./, ''); }
         catch (_) { return targetUrl.replace(/^https?:\/\//i, '').split('/')[0]; }
@@ -876,7 +850,7 @@ async function extractWebsite(rawUrl) {
         const img = new Image();
         img.crossOrigin = 'anonymous';
         await new Promise((res, rej) => {
-          const timer = setTimeout(() => rej(new Error('Thum timeout')), 12000);
+          const timer = setTimeout(() => rej(new Error('Thum timeout')), 14000);
           img.onload = () => { clearTimeout(timer); res(); };
           img.onerror = (err) => { clearTimeout(timer); rej(err); };
           img.src = thumUrl;
@@ -910,37 +884,39 @@ async function extractWebsite(rawUrl) {
       }
     }
 
-    // 3. Apply extracted metadata & either the real webpage image or the Catholic Parish synthesizer
-    const cleanHost = isDemo
-      ? 'st-peters-parish.org'
-      : targetUrl.replace(/^https?:\/\//i, '').replace(/\/.*$/, '');
+    const cleanHost = targetUrl.replace(/^https?:\/\//i, '').replace(/\/.*$/, '');
     const brandName = cleanHost.split('.')[0].charAt(0).toUpperCase() + cleanHost.split('.')[0].slice(1);
 
     state.metadata = extractedMeta || {
-      title: isDemo ? 'St. Peter Parish — Catholic Church & Community' : `${brandName} — Official Webpage`,
-      description: `Scroll through ${cleanHost} with smooth auto-scrolling, cursor highlights, and zoom effects.`,
-      siteName: isDemo ? 'St. Peter Parish' : brandName,
+      title: `${brandName} — ${cleanHost}`,
+      description: `Live webpage showcase of ${cleanHost}`,
+      siteName: brandName,
       hostname: cleanHost,
       fullUrl: targetUrl,
       viewportWidth: vw,
       viewportHeight: vh,
       captureHeight,
       hotspots: [
-        { centerX: Math.round(vw * 0.42), centerY: Math.round(vh * 0.55), label: 'Main Call to Action', zoomScale: 1.42 },
-        { centerX: Math.round(vw * 0.32), centerY: Math.round(captureHeight * 0.42), label: 'Liturgy & Gospel', zoomScale: 1.38 },
-        { centerX: Math.round(vw * 0.68), centerY: Math.round(captureHeight * 0.65), label: 'Mass Schedule', zoomScale: 1.42 },
-        { centerX: Math.round(vw * 0.50), centerY: Math.round(captureHeight * 0.85), label: 'Parish Connect', zoomScale: 1.38 }
+        { centerX: Math.round(vw * 0.42), centerY: Math.round(vh * 0.55), label: 'Main Highlight', zoomScale: 1.42 },
+        { centerX: Math.round(vw * 0.32), centerY: Math.round(captureHeight * 0.42), label: 'Featured Section', zoomScale: 1.38 },
+        { centerX: Math.round(vw * 0.68), centerY: Math.round(captureHeight * 0.65), label: 'Content Section', zoomScale: 1.42 },
+        { centerX: Math.round(vw * 0.50), centerY: Math.round(captureHeight * 0.85), label: 'Page Footer', zoomScale: 1.38 }
       ]
     };
 
-    state.siteImage = loadedRealImage || buildSynthesizedSiteCanvas(state.metadata, isMobile);
+    if (loadedRealImage) {
+      state.siteImage = loadedRealImage;
+      statusPill.textContent = 'Live Page Loaded ✓';
+    } else {
+      statusPill.textContent = 'Retrying Live Capture...';
+    }
+
     state.currentTime = 0;
     state.manualScrollRatio = 0;
 
     document.getElementById('metaTitle').textContent = state.metadata.title;
     document.getElementById('metaUrl').textContent = state.metadata.hostname;
     document.getElementById('metaDesc').textContent = state.metadata.description;
-    statusPill.textContent = loadedRealImage ? 'Live Page Loaded ✓' : 'Demo Page Ready ✓';
 
     renderHotspotsUI();
   } finally {
@@ -1434,10 +1410,6 @@ document.getElementById('toggleZoom').addEventListener('change', (e) => {
   state.cameraZoom = e.target.checked;
 });
 
-document.getElementById('toggleBadge').addEventListener('change', (e) => {
-  state.showSocialBadge = e.target.checked;
-});
-
 document.getElementById('zoomSlider').addEventListener('input', (e) => {
   state.maxZoom = Number(e.target.value) / 100;
   document.getElementById('zoomVal').textContent = `${state.maxZoom.toFixed(2)}x`;
@@ -1484,8 +1456,8 @@ document.getElementById('closeToastBtn').addEventListener('click', () => {
   document.getElementById('downloadToast').classList.add('hidden');
 });
 
-// Initialize with Vatican News (or Parish fallback if offline)
+// Initialize with the entered URL
 window.addEventListener('DOMContentLoaded', () => {
-  extractWebsite(document.getElementById('urlInput').value.trim() || 'demo');
+  extractWebsite(document.getElementById('urlInput').value.trim() || 'https://www.vaticannews.va/en.html');
   requestAnimationFrame(tick);
 });
